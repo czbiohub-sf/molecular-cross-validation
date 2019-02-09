@@ -25,8 +25,16 @@
 
 ## Metrics
 
+Evaluation metrics we can compute on data with or without ground-truth labels.
+
 ### Gene-Gene correlations
+
+Correlation. (Requires ground truth or prior bio knowledge.)
 
 ### Cell-Cell similarity
 
+Silhouette. (Requires clustering or labels.)
+
 ### Self-supervised loss
+
+MSE or Poisson or NB.
