@@ -7,7 +7,7 @@ from typing import Sequence
 import torch
 import torch.nn as nn
 
-from noise2self import ResNetBlock
+from noise2self_sc.modules import ResNetBlock
 
 
 class ResidualEncoder(nn.Module):
