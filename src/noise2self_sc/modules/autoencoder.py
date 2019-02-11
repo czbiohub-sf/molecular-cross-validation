@@ -5,7 +5,7 @@ from typing import Sequence
 import torch
 import torch.nn as nn
 
-from src.noise2scelf import FCLayers
+from noise2scelf import FCLayers
 
 
 class NBDecoder(nn.Module):
