@@ -2,7 +2,7 @@
 
 import numpy as np
 
-import simscity
+from simscity import latent, drug, sequencing
 
 
 def make_dataset(
@@ -34,9 +34,9 @@ def make_dataset(
 
     n_cells_per_class = n_cells // n_classes
 
-    programs = simscity.latent.gen_programs(n_latent, n_features, **prog_kw)
+    programs = latent.gen_programs(n_latent, n_features, **prog_kw)
 
-    classes = simscity.latent.gen_classes(n_latent, n_classes, **class_kw)
+    classes = latent.gen_classes(n_latent, n_classes, **class_kw)
 
     class_labels = np.tile(np.arange(n_classes), n_cells_per_class)
 
@@ -46,11 +46,11 @@ def make_dataset(
 
     exp = np.dot(latent_exp, programs)
 
-    lib_size = simscity.sequencing.library_size(
+    lib_size = sequencing.library_size(
         (n_cells_per_class, n_classes), **library_kw
     )
 
-    umis = simscity.sequencing.umi_counts(np.exp(exp), lib_size=lib_size)
+    umis = sequencing.umi_counts(np.exp(exp), lib_size=lib_size)
 
     return (
         latent_exp.reshape(n_cells, -1),
