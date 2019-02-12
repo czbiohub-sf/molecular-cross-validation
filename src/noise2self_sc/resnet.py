@@ -39,18 +39,19 @@ class ResidualEncoder(nn.Module):
         # log-rate
         self.r_decoder = nn.Linear(n_input, n_input)
 
-        # logit
-        self.logit_decoder = nn.Linear(n_input, n_input)
+        self.scale_decoder = nn.Sequential(
+            nn.Linear(layers[-1], n_output), nn.LogSoftmax(dim=-1)
+        )
 
         if use_cuda:
             self.cuda()
 
         self.use_cuda = use_cuda
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, loglib: torch.Tensor):
         res = self.resnet_blocks(x)
 
         log_r = self.r_decoder(res)
-        logit = self.logit_decoder(res)
+        scale = self.scale_decoder(res)
 
-        return log_r, logit
+        return log_r, loglib + scale - log_r

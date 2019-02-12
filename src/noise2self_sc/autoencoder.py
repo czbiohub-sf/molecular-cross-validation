@@ -24,16 +24,18 @@ class NBDecoder(nn.Module):
         # log-rate
         self.r_decoder = nn.Linear(layers[-1], n_output)
 
-        # logit
-        self.logit_decoder = nn.Linear(layers[-1], n_output)
+        # normalized scale
+        self.scale_decoder = nn.Sequential(
+            nn.Linear(layers[-1], n_output), nn.LogSoftmax(dim=-1)
+        )
 
     def forward(self, z: torch.Tensor):
         px = self.decoder(z)
 
         log_r = self.r_decoder(px)
-        logit = self.logit_decoder(px)
+        scale = self.scale_decoder(px)
 
-        return log_r, logit
+        return log_r, scale
 
 
 class CountAutoencoder(nn.Module):
@@ -65,8 +67,8 @@ class CountAutoencoder(nn.Module):
 
         self.use_cuda = use_cuda
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, loglib: torch.Tensor):
         z = self.encoder(x)
-        log_r, logit = self.decoder(z)
+        log_r, scale = self.decoder(z)
 
-        return log_r, logit
+        return log_r, loglib + scale - log_r
