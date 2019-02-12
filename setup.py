@@ -30,4 +30,5 @@ setuptools.setup(
     ],
     zip_safe=False,
     install_requires=["numpy", "torch", "simscity"],
+    extras_require={"plot": ["altair"]},
 )

@@ -36,7 +36,7 @@ class NBDecoder(nn.Module):
         return log_r, logit
 
 
-class Autoencoder(nn.Module):
+class CountAutoencoder(nn.Module):
     def __init__(
         self,
         *,
@@ -46,7 +46,7 @@ class Autoencoder(nn.Module):
         dropout_rate: float = 0.1,
         use_cuda: bool = False,
     ):
-        super(Autoencoder, self).__init__()
+        super(CountAutoencoder, self).__init__()
 
         self.encoder = nn.Sequential(
             FCLayers(n_input=n_input, layers=layers, dropout_rate=dropout_rate),
