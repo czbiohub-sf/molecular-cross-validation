@@ -11,6 +11,16 @@ from noise2self_sc.modules import ResNetBlock
 
 
 class ResidualEncoder(nn.Module):
+    """A residual autoencoder. This model passed the data through a bottlenecked
+    autoencoder, but also passes the raw data through to the last layer. Not expected
+    to work unless using noise-to-self training.
+
+    :param n_input: dimensionality of the input data (number of features).
+    :param n_block: number of ResNet blocks to use.
+    :param layers: sequence of widths for each ResNet block.
+    :param dropout_rate: used between fully-connected layers in ResNet blocks.
+    :param use_cuda: whether to put parameters into GPU memory.
+    """
     def __init__(
         self,
         *,
@@ -37,10 +47,11 @@ class ResidualEncoder(nn.Module):
         )
 
         # log-rate
-        self.r_decoder = nn.Linear(layers[-1], n_input)
+        self.r_decoder = nn.Linear(n_input, n_input)
 
+        # normalized scale
         self.scale_decoder = nn.Sequential(
-            nn.Linear(layers[-1], input), nn.LogSoftmax(dim=-1)
+            nn.Linear(n_input, n_input), nn.LogSoftmax(dim=-1)
         )
 
         if use_cuda:

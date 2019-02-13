@@ -39,6 +39,16 @@ class NBDecoder(nn.Module):
 
 
 class CountAutoencoder(nn.Module):
+    """A denoising autoencoder for single-cell count data. Outputs parameters for a
+    negative binomial distribution.
+
+    :param n_input: dimensionality of the input data (number of features).
+    :param n_latent: width the bottleneck layer.
+    :param layers: sequence of widths for intermediate layers. Order provided is used
+                   for the encoder, and is reversed for the decoder.
+    :param dropout_rate: used between fully-connected layers in encoder/decoder.
+    :param use_cuda: whether to put parameters into GPU memory.
+    """
     def __init__(
         self,
         *,
@@ -52,7 +62,7 @@ class CountAutoencoder(nn.Module):
 
         self.encoder = nn.Sequential(
             FCLayers(n_input=n_input, layers=layers, dropout_rate=dropout_rate),
-            nn.Linear(layers[-1], n_output),
+            nn.Linear(layers[-1], n_latent),
         )
 
         self.decoder = NBDecoder(
