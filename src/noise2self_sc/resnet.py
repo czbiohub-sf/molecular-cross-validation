@@ -37,10 +37,10 @@ class ResidualEncoder(nn.Module):
         )
 
         # log-rate
-        self.r_decoder = nn.Linear(n_input, n_input)
+        self.r_decoder = nn.Linear(layers[-1], n_input)
 
         self.scale_decoder = nn.Sequential(
-            nn.Linear(layers[-1], n_output), nn.LogSoftmax(dim=-1)
+            nn.Linear(layers[-1], input), nn.LogSoftmax(dim=-1)
         )
 
         if use_cuda:
