@@ -20,8 +20,8 @@ To build the image with GPU support:
 
 ```sh
 nvidia-docker build -t noise2self-gpu-3.7 \
-	--build-arg uid=$(shell id -u) \
-	--build-arg gid=$(shell id -g) \
+	--build-arg uid=$(id -u) \
+	--build-arg gid=$(id -g) \
 	--build-arg cuda=1 \
 	--build-arg python_version=3.7 \
 	-f Dockerfile .
@@ -31,8 +31,8 @@ To build a CPU version:
 
 ```sh
 docker build -t noise2self-cpu-3.7 \
-	--build-arg uid=$(shell id -u) \
-	--build-arg gid=$(shell id -g) \
+	--build-arg uid=$(id -u) \
+	--build-arg gid=$(id -g) \
 	--build-arg cuda=0 \
 	--build-arg python_version=3.7 \
 	-f Dockerfile .
