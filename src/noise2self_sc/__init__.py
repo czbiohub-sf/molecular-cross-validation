@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-import noise2self_sc.autoencoder
-import noise2self_sc.modules
-import noise2self_sc.resnet
-import noise2self_sc.simulate
-import noise2self_sc.training
+import noise2self_sc.models
+import noise2self_sc.data
+import noise2self_sc.train
+import noise2self_sc.metrics

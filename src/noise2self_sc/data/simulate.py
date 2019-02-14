@@ -5,7 +5,7 @@ import numpy as np
 from simscity import latent, drug, sequencing
 
 
-def make_dataset(
+def simulate_classes(
     n_classes: int,
     n_latent: int,
     n_cells: int,
@@ -46,9 +46,7 @@ def make_dataset(
 
     exp = np.dot(latent_exp, programs)
 
-    lib_size = sequencing.library_size(
-        (n_cells_per_class, n_classes), **library_kw
-    )
+    lib_size = sequencing.library_size((n_cells_per_class, n_classes), **library_kw)
 
     umis = sequencing.umi_counts(np.exp(exp), lib_size=lib_size)
 

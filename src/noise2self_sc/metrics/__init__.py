@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+
+import numpy as np
+
+import noise2self_sc.metrics.plot
 
 
 # TODO: correlation of denoised gene levels with ground truth

@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
-import numpy as np
-
 import torch
 import torch.nn as nn
 
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader, SubsetRandomSampler, TensorDataset
+from torch.utils.data import DataLoader
 
 
 class NegativeBinomialNLLoss(nn.Module):
@@ -102,28 +100,5 @@ def test_loop(
     return total_epoch_loss
 
 
-def split_dataset(
-    *xs: torch.Tensor, batch_size: int, train_p: float, use_cuda: bool = False
-):
-    n_cells = xs[0].shape[0]
-
-    example_indices = np.random.permutation(n_cells)
-    n_train = int(train_p * n_cells)
-
-    dataset = TensorDataset(*xs)
-
-    data_loader_train = DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        pin_memory=use_cuda,
-        sampler=SubsetRandomSampler(example_indices[:n_train]),
-    )
-
-    data_loader_test = DataLoader(
-        dataset=dataset,
-        batch_size=batch_size,
-        pin_memory=use_cuda,
-        sampler=SubsetRandomSampler(example_indices[n_train:]),
-    )
-
-    return data_loader_train, data_loader_test
+def train_until_plateau(model, training_data, testing_data):
+    pass

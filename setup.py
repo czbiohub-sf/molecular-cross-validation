@@ -30,5 +30,5 @@ setuptools.setup(
     ],
     zip_safe=False,
     install_requires=["numpy", "torch", "simscity"],
-    extras_require={"plot": ["altair"]},
+    extras_require={"plot": ["altair", "pandas", "scikit-learn", "umap-learn"]},
 )

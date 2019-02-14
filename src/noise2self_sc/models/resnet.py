@@ -7,7 +7,7 @@ from typing import Sequence
 import torch
 import torch.nn as nn
 
-from noise2self_sc.modules import ResNetBlock
+from noise2self_sc.models.modules import ResNetBlock
 
 
 class ResidualEncoder(nn.Module):
@@ -21,6 +21,7 @@ class ResidualEncoder(nn.Module):
     :param dropout_rate: used between fully-connected layers in ResNet blocks.
     :param use_cuda: whether to put parameters into GPU memory.
     """
+
     def __init__(
         self,
         *,

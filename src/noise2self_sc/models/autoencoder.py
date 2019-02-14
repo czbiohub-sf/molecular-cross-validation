@@ -5,7 +5,7 @@ from typing import Sequence
 import torch
 import torch.nn as nn
 
-from noise2self_sc.modules import FCLayers
+from noise2self_sc.models.modules import FCLayers
 
 
 class NBDecoder(nn.Module):
@@ -49,6 +49,7 @@ class CountAutoencoder(nn.Module):
     :param dropout_rate: used between fully-connected layers in encoder/decoder.
     :param use_cuda: whether to put parameters into GPU memory.
     """
+
     def __init__(
         self,
         *,
