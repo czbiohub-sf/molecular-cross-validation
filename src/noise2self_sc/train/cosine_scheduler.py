@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import numpy as np
+
 import torch
 import torch.optim.lr_scheduler
 
