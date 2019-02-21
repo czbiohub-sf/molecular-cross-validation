@@ -51,9 +51,9 @@ def simulate_classes(
     umis = sequencing.umi_counts(np.exp(exp), lib_size=lib_size)
 
     return (
-        latent_exp.reshape(n_cells, -1),
+        latent_exp.reshape(n_cells, n_latent),
         class_labels,
         programs,
-        lib_size,
-        umis.reshape(n_cells, -1),
+        lib_size.reshape(n_cells),
+        umis.reshape(n_cells, n_features),
     )
