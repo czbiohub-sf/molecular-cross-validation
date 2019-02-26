@@ -13,17 +13,12 @@ class CosineWithRestarts(torch.optim.lr_scheduler._LRScheduler):
 
     This code adapted from https://github.com/allenai/allennlp
 
-    Parameters
-    ----------
-    optimizer : ``torch.optim.Optimizer``
-    t_max : ``int``
-        The maximum number of iterations within the first cycle.
-    eta_min : ``float``, optional (default=0)
-        The minimum learning rate.
-    last_epoch : ``int``, optional (default=-1)
-        The index of the last epoch. This is used when restarting.
-    factor : ``float``, optional (default=1)
-        The factor by which the cycle length (``T_max``) increases after each restart.
+    :param optimizer: Optimizer to schedule
+    :param t_max: The maximum number of iterations within the first cycle.
+    :param eta_min: The minimum learning rate.
+    :param last_epoch: The index of the last epoch. This is used when restarting.
+    :param factor: The factor by which the cycle length (``T_max``) increases
+                   after each restart.
     """
 
     def __init__(

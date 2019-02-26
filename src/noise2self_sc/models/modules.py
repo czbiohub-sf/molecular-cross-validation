@@ -41,15 +41,7 @@ class FCLayers(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        for layers in self.layers:
-            for layer in layers:
-                if isinstance(layer, nn.BatchNorm1d) and x.dim() == 3:
-                    x = torch.cat(
-                        [(layer(slice_x)).unsqueeze(0) for slice_x in x], dim=0
-                    )
-                else:
-                    x = layer(x)
-        return x
+        return self.layers(x)
 
 
 class ResNetBlock(nn.Module):
@@ -66,13 +58,31 @@ class ResNetBlock(nn.Module):
     ):
         super(ResNetBlock, self).__init__()
 
-        self.fc_layers = FCLayers(n_input, layers + [n_input], dropout_rate)
+        layers_dim = [n_input] + layers + [n_input]
+
+        self.layers = nn.Sequential(
+            collections.OrderedDict(
+                [
+                    (
+                        "Layer_{}".format(i),
+                        nn.Sequential(
+                            nn.BatchNorm1d(n_in, eps=1e-3, momentum=0.01),
+                            nn.ReLU(),
+                            nn.Linear(n_in, n_out),
+                            nn.Dropout(p=dropout_rate),
+                        ),
+                    )
+                    for i, (n_in, n_out) in enumerate(
+                        zip(layers_dim[:-1], layers_dim[1:])
+                    )
+                ]
+            )
+        )
 
         # shrink the initial weights to keep the starting point close to the identity
-        for layers in self.fc_layers.layers:
-            for layer in layers:
-                if isinstance(layer, nn.Linear):
-                    layer.weight.data.div_(10.0)
+        for layer in self.layers:
+            if isinstance(layer, nn.Linear):
+                layer.weight.data.div_(10.0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return nn.functional.relu(self.fc_layers(x) + x)
+        return x + self.layers(x)
