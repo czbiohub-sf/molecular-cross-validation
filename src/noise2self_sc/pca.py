@@ -115,6 +115,7 @@ def n2s_low_rank(adata, max_rank=30, plot=True, **kwargs):
 
     X = X.astype(np.int)
 
+    np.random.seed(0)
     X1 = np.random.binomial(X, 0.5)
     X2 = X - X1
 
@@ -123,7 +124,7 @@ def n2s_low_rank(adata, max_rank=30, plot=True, **kwargs):
     if plot:
         plt.plot(rank_range, losses)
         plt.xlabel("Rank")
-        plt.ylabel("Loss")
+        plt.ylabel("Self-Supervised Loss")
         plt.title("Sweep Rank")
         plt.axvline(best_rank, color='k', linestyle='--')
 
