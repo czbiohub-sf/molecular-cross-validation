@@ -76,3 +76,7 @@ class CosineWithRestarts(torch.optim.lr_scheduler._LRScheduler):
             self._last_restart = step
 
         return lrs
+
+    @property
+    def starting_cycle(self):
+        return self._cycle_counter == 0

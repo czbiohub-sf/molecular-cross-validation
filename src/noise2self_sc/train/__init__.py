@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 
+import itertools
 import warnings
 
 from typing import Tuple
+
+import numpy as np
 
 import torch
 import torch.nn as nn
 
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+from noise2self_sc.train.cosine_scheduler import CosineWithRestarts
 
 
 class NegativeBinomialNLLoss(nn.Module):
@@ -111,48 +115,61 @@ def train_until_plateau(
     optim: Optimizer,
     training_data: DataLoader,
     testing_data: DataLoader,
-    max_epochs: int = 1000,
-    progress_interval: int = 100,
-    min_lr: float = 1e-6,
+    t_max: int,
+    factor: float = 1.0,
+    min_cycles: int = 5,
+    threshold: float = 1e-4,
+    eta_min: float = 1e-4,
     use_cuda: bool = False,
 ) -> Tuple[list, list]:
-    """Train a model with LR reductions until validation loss stabilizes.
+    """Train a model with cosine scheduling until validation loss stabilizes.
 
-    This function implements uses ReduceLROnPlateau to train until the learning rate
+    This function implements uses CosineWithRestarts to train until the learning rate
     falls below a given threshold or it reachs ``max_epochs``, whichever comes first.
 
-    :param model: a torch Module that can take input data and return the prediction
-    :param criterion: a loss function
-    :param optim: a torch Optimizer (will zero the gradient after testing)
-    :param training_data: training dataset. Should produce tuples of Tensors, all but
+    :param model: torch Module that can take input data and return the prediction
+    :param criterion: A loss function
+    :param optim: torch Optimizer (will zero the gradient after testing)
+    :param training_data: Training dataset. Should produce tuples of Tensors, all but
                           the last are considered to be input and the last is the target
-    :param testing_data: testing dataset in the same format
-    :param max_epochs: maximum number of epochs to run before returning
-    :param progress_interval: how often to output the current progress
-    :param min_lr: learning rate threshold to stop training
-    :param use_cuda: whether to use the GPU
-    :return: lists of training and validation loss values
+    :param testing_data: Testing dataset in the same format
+    :param t_max: The maximum number of iterations within the first cycle.
+    :param factor: The factor by which the cycle length (``T_max``) increases after
+                   each restart
+    :param min_cycles: Minimum number of cycles to run before checking for convergence
+    :param threshold: Tolerance threshold for calling convergence
+    :param eta_min: Minimum learning rate
+    :param use_cuda: Whether to use the GPU
+    :return: Lists of training and validation loss values
     """
+
+    assert 0.0 <= threshold < 1.0
+
 
     train_loss = []
     test_loss = []
 
-    scheduler = ReduceLROnPlateau(optim, "min", factor=0.5)
+    best = np.inf
+    rel_epsilon = 1.0 - threshold
+    cycle = 0
+    scheduler = CosineWithRestarts(optim, t_max=t_max, eta_min=eta_min, factor=factor)
 
-    for epoch in range(max_epochs):
-        train_loss.append(train_loop(model, criterion, optim, training_data, use_cuda))
-        test_loss.append(validate_loop(model, criterion, optim, testing_data, use_cuda))
-        scheduler.step(test_loss[-1])
+    for epoch in itertools.count():
+        train_loss.append(
+            n2s.train.train_loop(model, criterion, optimizer, training_data, use_cuda)
+        )
+        test_loss.append(
+            n2s.train.validate_loop(model, criterion, optimizer, testing_data, use_cuda)
+        )
 
-        if epoch % progress_interval == 0:
-            print(f"[epoch {epoch:03d}]  average training loss: {train_loss[-1]:.5f}"
-                  f"  learning rate: {optim.param_groups[0]['lr']}")
+        scheduler.step()
+        if scheduler.starting_cycle:
+            print(f"[epoch {epoch:03d}]  average training loss: {train_loss[-1]:.5f}")
+            cycle += 1
 
-        if any(pg["lr"] <= min_lr for pg in optim.param_groups):
-            break
-    else:
-        warnings.warn(f"Reached {max_epochs} epochs without reaching min_lr")
-
-    print(f"[epoch {epoch:03d}]  final average training loss: {train_loss[-1]:.5f}")
+            if test_loss[-1] < best * rel_epsilon:
+                best = test_loss[-1]
+            elif cycle >= min_cycles:
+                break
 
     return train_loss, test_loss
