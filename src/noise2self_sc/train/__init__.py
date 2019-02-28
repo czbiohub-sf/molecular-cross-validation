@@ -145,7 +145,6 @@ def train_until_plateau(
 
     assert 0.0 <= threshold < 1.0
 
-
     train_loss = []
     test_loss = []
 

@@ -44,8 +44,7 @@ class CountAutoencoder(nn.Module):
         self.use_cuda = use_cuda
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.decoder(self.encoder(x)),
-
+        return (self.decoder(self.encoder(x)),)
 
 
 class NBCountAutoencoder(nn.Module):
@@ -87,7 +86,7 @@ class NBCountAutoencoder(nn.Module):
         # normalized scale
         self.scale_decoder = nn.Sequential(
             make_fc_layers(layers=[layers[0], n_input], dropout_rate=dropout_rate),
-            nn.LogSoftmax(dim=-1)
+            nn.LogSoftmax(dim=-1),
         )
 
         if use_cuda:

@@ -9,8 +9,8 @@ import torch.nn as nn
 
 
 def make_fc_layers(
-        layers: Sequence[int], dropout_rate: float = 0.1, use_bias: bool = True
-    ):
+    layers: Sequence[int], dropout_rate: float = 0.1, use_bias: bool = True
+):
     """A helper function to build fully-connected layers for a neural network.
 
     :param layers: Size of the intermediate layers
@@ -29,9 +29,7 @@ def make_fc_layers(
                     nn.Dropout(p=dropout_rate),
                 ),
             )
-            for i, (n_in, n_out) in enumerate(
-                zip(layers[:-1], layers[1:])
-            )
+            for i, (n_in, n_out) in enumerate(zip(layers[:-1], layers[1:]))
         )
     )
 

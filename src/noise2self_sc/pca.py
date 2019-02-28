@@ -7,19 +7,20 @@ from sklearn.model_selection import train_test_split
 from scipy.sparse import issparse
 from matplotlib import pyplot as plt
 
-class LowRank():
 
-    def __init__(self, rank=10, sqrt=True, normalize=False, regression=False, random_state=None):
+class LowRank:
+    def __init__(
+        self, rank=10, sqrt=True, normalize=False, regression=False, random_state=None
+    ):
         self.rank = rank
         self.sqrt = sqrt
         self.normalize = normalize
         self.regression = regression
         self.random_state = random_state
 
-
     def preprocess(self, X):
         if self.normalize:
-            X = normalize(X, norm='l1')
+            X = normalize(X, norm="l1")
 
         if self.sqrt:
             X = X.sqrt() if issparse(X) else np.sqrt(X)
@@ -44,7 +45,9 @@ class LowRank():
 
         random_state = check_random_state(self.random_state)
 
-        U, Sigma, VT = randomized_svd(X1, n_components=self.rank, random_state=random_state)
+        U, Sigma, VT = randomized_svd(
+            X1, n_components=self.rank, random_state=random_state
+        )
         self.components_ = VT
 
         if self.regression:
@@ -65,13 +68,17 @@ class LowRank():
             X2 = np.array(X2.todense())
 
         if self.regression:
-            X1_train, X1_test, X2_train, X2_test = train_test_split(X1, X2, test_size=0.3, random_state=0)
+            X1_train, X1_test, X2_train, X2_test = train_test_split(
+                X1, X2, test_size=0.3, random_state=0
+            )
         else:
             X1_train, X1_test, X2_train, X2_test = X1, X1, X2, X2
 
         random_state = check_random_state(self.random_state)
 
-        U, Sigma, VT = randomized_svd(X1_train, n_components=self.max_rank, random_state=random_state)
+        U, Sigma, VT = randomized_svd(
+            X1_train, n_components=self.max_rank, random_state=random_state
+        )
 
         self.components_ = VT
 
@@ -85,7 +92,12 @@ class LowRank():
         for i, rank in enumerate(self.rank_range):
 
             if self.regression:
-                denoised = X1_test.dot(VT[:rank, :].T).dot(np.diag(1 / Sigma[:rank])).dot(U[:, :rank].T).dot(X2_train)
+                denoised = (
+                    X1_test.dot(VT[:rank, :].T)
+                    .dot(np.diag(1 / Sigma[:rank]))
+                    .dot(U[:, :rank].T)
+                    .dot(X2_train)
+                )
 
             else:
                 denoised = U[:, :rank].dot(np.diag(Sigma[:rank]).dot(VT[:rank, :]))
@@ -126,7 +138,7 @@ def n2s_low_rank(adata, max_rank=30, plot=True, **kwargs):
         plt.xlabel("Rank")
         plt.ylabel("Self-Supervised Loss")
         plt.title("Sweep Rank")
-        plt.axvline(best_rank, color='k', linestyle='--')
+        plt.axvline(best_rank, color="k", linestyle="--")
 
     denoised = model.fit_transform(X1, X2)
 

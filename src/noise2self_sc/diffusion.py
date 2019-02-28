@@ -36,20 +36,21 @@ def sweep_time_per_gene(diff_op, X1, X2, max_t):
     best_denoised = denoised
 
     for t in t_range:
-        gene_losses[t] = ((denoised - X2)**2).sum(axis=0)
+        gene_losses[t] = ((denoised - X2) ** 2).sum(axis=0)
 
-        new_best_idx = (np.min(gene_losses, axis=0) == gene_losses[t])
+        new_best_idx = np.min(gene_losses, axis=0) == gene_losses[t]
         best_denoised[:, new_best_idx] = denoised[:, new_best_idx]
-
 
         denoised = diff_op.dot(denoised)
 
-    best_t = np.argmin(gene_losses, axis = 0)
+    best_t = np.argmin(gene_losses, axis=0)
 
     return best_denoised, best_t, t_range, gene_losses
 
 
-def n2s_magic(adata, max_t=20, lazy_p = 0.5, plot=True, per_gene=False, verbose=True, **kwargs):
+def n2s_magic(
+    adata, max_t=20, lazy_p=0.5, plot=True, per_gene=False, verbose=True, **kwargs
+):
 
     if adata.raw is None:
         X = adata.X
@@ -61,7 +62,7 @@ def n2s_magic(adata, max_t=20, lazy_p = 0.5, plot=True, per_gene=False, verbose=
 
     X1, X2 = split_counts(X)
 
-    median_counts = np.median(X.sum(axis=1))/2
+    median_counts = np.median(X.sum(axis=1)) / 2
 
     X1 = np.sqrt(normalize_rows(X1, median_counts))
     X2 = np.sqrt(normalize_rows(X2, median_counts))
@@ -74,7 +75,9 @@ def n2s_magic(adata, max_t=20, lazy_p = 0.5, plot=True, per_gene=False, verbose=
     diff_op = lazy_p * diff_op + (1 - lazy_p) * np.eye(diff_op.shape[0])
 
     if per_gene:
-        best_denoised, best_t, t_range, losses = sweep_time_per_gene(diff_op, X1, X2, max_t)
+        best_denoised, best_t, t_range, losses = sweep_time_per_gene(
+            diff_op, X1, X2, max_t
+        )
 
         if plot:
             plt.hist(best_t, bins=20)
@@ -89,8 +92,7 @@ def n2s_magic(adata, max_t=20, lazy_p = 0.5, plot=True, per_gene=False, verbose=
             plt.xlabel("diffusion time")
             plt.ylabel("Self-Supervised Loss")
             plt.title("Sweep t")
-            plt.axvline(best_t, color='k', linestyle='--')
-
+            plt.axvline(best_t, color="k", linestyle="--")
 
     denoised_adata = adata.copy()
     denoised_adata.X = best_denoised

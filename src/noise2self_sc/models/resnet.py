@@ -51,7 +51,7 @@ class ResidualEncoder(nn.Module):
         self.use_cuda = use_cuda
 
     def forward(self, x: torch.Tensor):
-        return self.resnet_blocks(x),
+        return (self.resnet_blocks(x),)
 
 
 class NBResidualEncoder(nn.Module):
