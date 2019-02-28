@@ -35,15 +35,57 @@ class ResidualEncoder(nn.Module):
 
         self.resnet_blocks = nn.Sequential(
             collections.OrderedDict(
-                [
-                    (
-                        "Block_{}".format(i),
-                        ResNetBlock(
-                            n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
-                        ),
-                    )
-                    for i in range(n_blocks)
-                ]
+                (
+                    "Block_{}".format(i),
+                    ResNetBlock(
+                        n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
+                    ),
+                )
+                for i in range(n_blocks)
+            )
+        )
+
+        if use_cuda:
+            self.cuda()
+
+        self.use_cuda = use_cuda
+
+    def forward(self, x: torch.Tensor):
+        return self.resnet_blocks(x),
+
+
+class NBResidualEncoder(nn.Module):
+    """A residual autoencoder. This model passed the data through a bottlenecked
+    autoencoder, but also passes the raw data through to the last layer. Not expected
+    to work unless using noise-to-self training.
+
+    :param n_input: dimensionality of the input data (number of features).
+    :param n_block: number of ResNet blocks to use.
+    :param layers: sequence of widths for each ResNet block.
+    :param dropout_rate: used between fully-connected layers in ResNet blocks.
+    :param use_cuda: whether to put parameters into GPU memory.
+    """
+
+    def __init__(
+        self,
+        *,
+        n_input: int,
+        n_blocks: int,
+        layers: Sequence[int],
+        dropout_rate: float = 0.1,
+        use_cuda: bool = False,
+    ):
+        super(NBResidualEncoder, self).__init__()
+
+        self.resnet_blocks = nn.Sequential(
+            collections.OrderedDict(
+                (
+                    "Block_{}".format(i),
+                    ResNetBlock(
+                        n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
+                    ),
+                )
+                for i in range(n_blocks)
             )
         )
 
