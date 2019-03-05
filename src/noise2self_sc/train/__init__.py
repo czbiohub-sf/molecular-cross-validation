@@ -121,6 +121,7 @@ def train_until_plateau(
     threshold: float = 1e-4,
     eta_min: float = 1e-4,
     use_cuda: bool = False,
+    verbose: bool = False,
 ) -> Tuple[list, list]:
     """Train a model with cosine scheduling until validation loss stabilizes.
 
@@ -140,6 +141,7 @@ def train_until_plateau(
     :param threshold: Tolerance threshold for calling convergence
     :param eta_min: Minimum learning rate
     :param use_cuda: Whether to use the GPU
+    :param verbose: Output training progress to stdout
     :return: Lists of training and validation loss values
     """
 
@@ -163,7 +165,8 @@ def train_until_plateau(
 
         scheduler.step()
         if scheduler.starting_cycle:
-            print(f"[epoch {epoch:03d}]  average training loss: {train_loss[-1]:.5f}")
+            if verbose:
+                print(f"[epoch {epoch:03d}]  average training loss: {train_loss[-1]:.5f}")
             cycle += 1
 
             if test_loss[-1] < best * rel_epsilon:
