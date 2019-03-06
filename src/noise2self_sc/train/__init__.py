@@ -156,9 +156,7 @@ def train_until_plateau(
     scheduler = CosineWithRestarts(optim, t_max=t_max, eta_min=eta_min, factor=factor)
 
     for epoch in itertools.count():
-        train_loss.append(
-            train_loop(model, criterion, optim, training_data, use_cuda)
-        )
+        train_loss.append(train_loop(model, criterion, optim, training_data, use_cuda))
         test_loss.append(
             validate_loop(model, criterion, optim, validation_data, use_cuda)
         )
