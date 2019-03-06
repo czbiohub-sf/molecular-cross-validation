@@ -36,7 +36,7 @@ class ResidualEncoder(nn.Module):
         self.resnet_blocks = nn.Sequential(
             collections.OrderedDict(
                 (
-                    "Block_{}".format(i),
+                    f"Block_{i}",
                     ResNetBlock(
                         n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
                     ),
@@ -80,7 +80,7 @@ class NBResidualEncoder(nn.Module):
         self.resnet_blocks = nn.Sequential(
             collections.OrderedDict(
                 (
-                    "Block_{}".format(i),
+                    f"Block_{i}",
                     ResNetBlock(
                         n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
                     ),

@@ -16,14 +16,14 @@ from torch.utils.data import DataLoader
 from noise2self_sc.train.cosine_scheduler import CosineWithRestarts
 
 
-class NegativeBinomialNLLoss(nn.Module):
+class NegativeBinomialNLLLoss(nn.Module):
     """Negative log likelihood loss with Negative Binomial distribution of target.
 
     :param eps: value to use for numerical stability of total_count
     """
 
     def __init__(self, eps: float = 1e-8):
-        super(NegativeBinomialNLLoss, self).__init__()
+        super(NegativeBinomialNLLLoss, self).__init__()
         self.eps = eps
 
     def forward(self, log_r: torch.Tensor, logits: torch.Tensor, target: torch.Tensor):
@@ -80,7 +80,7 @@ def validate_loop(
     model: nn.Module,
     criterion: nn.Module,
     optim: Optimizer,
-    testing_data: DataLoader,
+    validation_data: DataLoader,
     use_cuda: bool,
 ):
     """Iterate through test data and compute losses
@@ -88,14 +88,14 @@ def validate_loop(
     :param model: a torch Module that can take input data and return the prediction
     :param criterion: a loss function
     :param optim: a torch Optimizer (will zero the gradient after testing)
-    :param testing_data: testing dataset. Should produce tuples of Tensors, all but the
-                         last are considered to be input and the last is the target
+    :param validation_data: testing dataset. Should produce tuples of Tensors, all but
+                            the last are considered to be input; the last is the target
     :param use_cuda: whether to use the GPU
     :return: total loss for the epoch
     """
     total_epoch_loss = 0.
 
-    for data in testing_data:
+    for data in validation_data:
         if use_cuda:
             data = tuple(x.cuda() for x in data)
 
@@ -114,7 +114,7 @@ def train_until_plateau(
     criterion: nn.Module,
     optim: Optimizer,
     training_data: DataLoader,
-    testing_data: DataLoader,
+    validation_data: DataLoader,
     t_max: int,
     factor: float = 1.0,
     min_cycles: int = 5,
@@ -133,7 +133,7 @@ def train_until_plateau(
     :param optim: torch Optimizer (will zero the gradient after testing)
     :param training_data: Training dataset. Should produce tuples of Tensors, all but
                           the last are considered to be input and the last is the target
-    :param testing_data: Testing dataset in the same format
+    :param validation_data: Validation dataset in the same format
     :param t_max: The maximum number of iterations within the first cycle.
     :param factor: The factor by which the cycle length (``T_max``) increases after
                    each restart
@@ -157,16 +157,18 @@ def train_until_plateau(
 
     for epoch in itertools.count():
         train_loss.append(
-            n2s.train.train_loop(model, criterion, optimizer, training_data, use_cuda)
+            train_loop(model, criterion, optimizer, training_data, use_cuda)
         )
         test_loss.append(
-            n2s.train.validate_loop(model, criterion, optimizer, testing_data, use_cuda)
+            validate_loop(model, criterion, optimizer, validation_data, use_cuda)
         )
 
         scheduler.step()
         if scheduler.starting_cycle:
             if verbose:
-                print(f"[epoch {epoch:03d}]  average training loss: {train_loss[-1]:.5f}")
+                print(
+                    f"[epoch {epoch:03d}]  average training loss: {train_loss[-1]:.5f}"
+                )
             cycle += 1
 
             if test_loss[-1] < best * rel_epsilon:

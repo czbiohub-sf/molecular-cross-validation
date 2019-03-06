@@ -21,7 +21,7 @@ def make_fc_layers(
     return nn.Sequential(
         collections.OrderedDict(
             (
-                "Layer_{}".format(i),
+                f"Layer_{i}",
                 nn.Sequential(
                     nn.BatchNorm1d(n_in, eps=1e-3, momentum=0.01),
                     nn.ReLU(),
