@@ -157,10 +157,10 @@ def train_until_plateau(
 
     for epoch in itertools.count():
         train_loss.append(
-            train_loop(model, criterion, optimizer, training_data, use_cuda)
+            train_loop(model, criterion, optim, training_data, use_cuda)
         )
         test_loss.append(
-            validate_loop(model, criterion, optimizer, validation_data, use_cuda)
+            validate_loop(model, criterion, optim, validation_data, use_cuda)
         )
 
         scheduler.step()
