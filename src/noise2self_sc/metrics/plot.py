@@ -191,19 +191,16 @@ def umap(
     )
 
 
-def heatmap(
-    d: np.ndarray,
-):
-    x, y = np.mgrid[0:d.shape[0], 0:d.shape[1]]
+def heatmap(d: np.ndarray,):
+    x, y = np.mgrid[0 : d.shape[0], 0 : d.shape[1]]
 
     # Convert this grid to columnar data expected by Altair
     data = pd.DataFrame({"x": x.ravel(), "y": y.ravel(), "z": cc.ravel()})
 
-
     return (
         alt.Chart(data)
-            .mark_rect()
-            .encode(
+        .mark_rect()
+        .encode(
             x=alt.X(
                 "x",
                 type="ordinal",
@@ -219,8 +216,7 @@ def heatmap(
                 type="ordinal",
                 axis=alt.Axis(title="Gene", ticks=False, labels=False),
             ),
-            color=alt.Color("z:Q",
-                            scale=alt.Scale(scheme="viridis", domain=[-1, 1])),
+            color=alt.Color("z:Q", scale=alt.Scale(scheme="viridis", domain=[-1, 1])),
         )
-            .properties(width=250, height=250)
+        .properties(width=250, height=250)
     )
