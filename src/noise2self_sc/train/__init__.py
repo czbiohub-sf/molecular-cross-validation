@@ -73,7 +73,7 @@ def train_loop(
         loss.backward()
         optim.step()
 
-    return total_epoch_loss
+    return total_epoch_loss / len(training_data)
 
 
 def validate_loop(
@@ -106,7 +106,7 @@ def validate_loop(
 
     optim.zero_grad()
 
-    return total_epoch_loss
+    return total_epoch_loss / len(validation_data)
 
 
 def train_until_plateau(
