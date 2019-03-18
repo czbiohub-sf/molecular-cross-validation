@@ -79,13 +79,11 @@ class NBCountAutoencoder(nn.Module):
         )
 
         # log-rate
-        self.r_decoder = make_fc_layers(
-            layers=[layers[0], n_input], dropout_rate=dropout_rate
-        )
+        self.r_decoder = make_fc_layers(layers=[layers[0], n_input], dropout_rate=0.0)
 
         # normalized scale
         self.scale_decoder = nn.Sequential(
-            make_fc_layers(layers=[layers[0], n_input], dropout_rate=dropout_rate),
+            make_fc_layers(layers=[layers[0], n_input], dropout_rate=0.0),
             nn.LogSoftmax(dim=-1),
         )
 
