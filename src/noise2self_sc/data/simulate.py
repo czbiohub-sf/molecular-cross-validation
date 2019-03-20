@@ -15,12 +15,12 @@ def simulate_classes(
     library_kw: dict = None,
 ):
     prog_kw = (
-        dict(scale=1. / np.sqrt(n_features), sparsity=1.)
+        dict(scale=1.0 / np.sqrt(n_features), sparsity=1.0)
         if prog_kw is None
         else prog_kw.copy()
     )
     class_kw = (
-        dict(scale=1. / np.sqrt(n_latent), sparsity=1.)
+        dict(scale=1.0 / np.sqrt(n_latent), sparsity=1.0)
         if class_kw is None
         else class_kw.copy()
     )

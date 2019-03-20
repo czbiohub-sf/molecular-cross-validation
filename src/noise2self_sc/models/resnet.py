@@ -34,12 +34,9 @@ class ResidualEncoder(nn.Module):
         super(ResidualEncoder, self).__init__()
 
         self.resnet_blocks = nn.Sequential(
-            collections.OrderedDict(
-                (
-                    f"Block_{i}",
-                    ResNetBlock(
-                        n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
-                    ),
+            *(
+                ResNetBlock(
+                    n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
                 )
                 for i in range(n_blocks)
             )
@@ -51,7 +48,7 @@ class ResidualEncoder(nn.Module):
         self.use_cuda = use_cuda
 
     def forward(self, x: torch.Tensor):
-        return (self.resnet_blocks(x),)
+        return self.resnet_blocks(x)
 
 
 class NBResidualEncoder(nn.Module):
@@ -78,12 +75,9 @@ class NBResidualEncoder(nn.Module):
         super(NBResidualEncoder, self).__init__()
 
         self.resnet_blocks = nn.Sequential(
-            collections.OrderedDict(
-                (
-                    f"Block_{i}",
-                    ResNetBlock(
-                        n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
-                    ),
+            *(
+                ResNetBlock(
+                    n_input=n_input, layers=layers[:], dropout_rate=dropout_rate
                 )
                 for i in range(n_blocks)
             )

@@ -30,13 +30,11 @@ class CountAutoencoder(nn.Module):
     ):
         super(CountAutoencoder, self).__init__()
 
-        self.encoder = make_fc_layers(
-            layers=[n_input] + layers + [n_latent], dropout_rate=dropout_rate
-        )
+        layers = [n_input] + layers + [n_latent]
 
-        self.decoder = make_fc_layers(
-            layers=[n_latent] + layers[::-1] + [n_input], dropout_rate=dropout_rate
-        )
+        self.encoder = make_fc_layers(layers=layers, dropout_rate=dropout_rate)
+
+        self.decoder = make_fc_layers(layers=layers[::-1], dropout_rate=dropout_rate)
 
         if use_cuda:
             self.cuda()
@@ -44,7 +42,7 @@ class CountAutoencoder(nn.Module):
         self.use_cuda = use_cuda
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return (self.decoder(self.encoder(x)),)
+        return self.decoder(self.encoder(x))
 
 
 class NBCountAutoencoder(nn.Module):
@@ -70,13 +68,13 @@ class NBCountAutoencoder(nn.Module):
     ):
         super(NBCountAutoencoder, self).__init__()
 
+        layers = layers + [n_latent]
+
         self.encoder = make_fc_layers(
-            layers=[n_input] + layers + [n_latent], dropout_rate=dropout_rate
+            layers=[n_input] + layers, dropout_rate=dropout_rate
         )
 
-        self.decoder = make_fc_layers(
-            layers=[n_latent] + layers[::-1], dropout_rate=dropout_rate
-        )
+        self.decoder = make_fc_layers(layers=layers[::-1], dropout_rate=dropout_rate)
 
         # log-rate
         self.r_decoder = make_fc_layers(layers=[layers[0], n_input], dropout_rate=0.0)

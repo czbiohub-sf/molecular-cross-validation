@@ -26,14 +26,15 @@ class NegativeBinomialNLLLoss(nn.Module):
         super(NegativeBinomialNLLLoss, self).__init__()
         self.eps = eps
 
-    def forward(self, log_r: torch.Tensor, logits: torch.Tensor, target: torch.Tensor):
+    def forward(self, params: Tuple[torch.Tensor, torch.Tensor], target: torch.Tensor):
         """Calculate the NB loss
 
-        :param log_r: log of the rate parameters
-        :param logits: logit values for success rate
+        :param params: log of the rate parameters and logit values for success rate
         :param target: target values for computing log_prob
         :return: mean of negative log likelihood
         """
+        log_r, logits = nb_params
+
         d = torch.distributions.NegativeBinomial(
             torch.exp(log_r) + self.eps, logits=logits, validate_args=True
         )
@@ -58,14 +59,14 @@ def train_loop(
     :param use_cuda: whether to use the GPU
     :return: total loss for the epoch
     """
-    total_epoch_loss = 0.
+    total_epoch_loss = 0.0
 
     for data in training_data:
         if use_cuda:
             data = tuple(x.cuda() for x in data)
 
         ys = model(*data[:-1])
-        loss = criterion(*ys, data[-1])
+        loss = criterion(ys, data[-1])
 
         total_epoch_loss += loss.data.item()
 
@@ -93,14 +94,14 @@ def validate_loop(
     :param use_cuda: whether to use the GPU
     :return: total loss for the epoch
     """
-    total_epoch_loss = 0.
+    total_epoch_loss = 0.0
 
     for data in validation_data:
         if use_cuda:
             data = tuple(x.cuda() for x in data)
 
         ys = model(*data[:-1])
-        loss = criterion(*ys, data[-1])
+        loss = criterion(ys, data[-1])
 
         total_epoch_loss += loss.data.item()
 
@@ -115,10 +116,10 @@ def train_until_plateau(
     optim: Optimizer,
     training_data: DataLoader,
     validation_data: DataLoader,
-    t_max: int,
+    t_max: int = 128,
     factor: float = 1.0,
-    min_cycles: int = 5,
-    threshold: float = 1e-4,
+    min_cycles: int = 3,
+    threshold: float = 0.01,
     eta_min: float = 1e-4,
     use_cuda: bool = False,
     verbose: bool = False,
@@ -148,7 +149,7 @@ def train_until_plateau(
     assert 0.0 <= threshold < 1.0
 
     train_loss = []
-    test_loss = []
+    val_loss = []
 
     best = np.inf
     rel_epsilon = 1.0 - threshold
@@ -157,7 +158,7 @@ def train_until_plateau(
 
     for epoch in itertools.count():
         train_loss.append(train_loop(model, criterion, optim, training_data, use_cuda))
-        test_loss.append(
+        val_loss.append(
             validate_loop(model, criterion, optim, validation_data, use_cuda)
         )
 
@@ -169,9 +170,9 @@ def train_until_plateau(
                 )
             cycle += 1
 
-            if test_loss[-1] < best * rel_epsilon:
-                best = test_loss[-1]
+            if val_loss[-1] < best * rel_epsilon:
+                best = val_loss[-1]
             elif cycle >= min_cycles:
                 break
 
-    return train_loss, test_loss
+    return train_loss, val_loss

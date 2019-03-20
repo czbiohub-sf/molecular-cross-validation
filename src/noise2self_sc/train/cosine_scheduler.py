@@ -25,9 +25,9 @@ class CosineWithRestarts(torch.optim.lr_scheduler._LRScheduler):
         self,
         optimizer: torch.optim.Optimizer,
         t_max: int,
-        eta_min: float = 0.,
+        eta_min: float = 0.0,
         last_epoch: int = -1,
-        factor: float = 1.,
+        factor: float = 1.0,
     ) -> None:
         assert t_max > 0
         assert eta_min >= 0
@@ -36,7 +36,7 @@ class CosineWithRestarts(torch.optim.lr_scheduler._LRScheduler):
         self.factor = factor
         self._last_restart: int = 0
         self._cycle_counter: int = 0
-        self._cycle_factor: float = 1.
+        self._cycle_factor: float = 1.0
         self._updated_cycle_len: int = t_max
         self._initialized: bool = False
         super(CosineWithRestarts, self).__init__(optimizer, last_epoch)
