@@ -11,7 +11,7 @@ from noise2self_sc.models.modules import ResNetBlock
 
 
 class ResidualEncoder(nn.Module):
-    """A residual autoencoder. This model passed the data through a bottlenecked
+    """A residual autoencoder. This model passes the data through a bottlenecked
     autoencoder, but also passes the raw data through to the last layer. Not expected
     to work unless using noise-to-self training.
 

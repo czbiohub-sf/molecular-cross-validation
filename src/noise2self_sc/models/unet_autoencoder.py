@@ -15,7 +15,7 @@ class UnetAutoencoder(nn.Module):
     :param n_latent: width the bottleneck layer.
     :param layers: sequence of widths for intermediate layers. Order provided is used
                    for the encoder, and is reversed for the decoder.
-    :param conv_layers: sequence of widths for intermediates layers of convnets
+    :param conv_layers: sequence of widths for intermediate layers of convnets
     :param dropout_rate: used between fully-connected layers in encoder/decoder.
     :param use_cuda: whether to put parameters into GPU memory.
     """
