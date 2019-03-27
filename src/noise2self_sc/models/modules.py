@@ -57,7 +57,7 @@ def make_conv_layers(
 
 class ResNetBlock(nn.Module):
     """A residual network block. Passes the input through a series of fully-connected
-    ReLU layers before adding it to the original input and applying a final ReLU
+    ReLU layers before adding it to the original input.
 
     :param n_input: The dimensionality of the input
     :param layers: Size of the intermediate layers (not including final n_input)
@@ -89,3 +89,45 @@ class ResNetBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x + self.layers(x)
+
+
+class ConvNetBlock(nn.Module):
+    """Kinda like a residual block, but uses a small convnet to mix together the paths
+    instead of summing them together.
+
+    :param n_input: The dimensionality of the input
+    :param layers: sequence of widths for intermediate layers (not including n_input)
+    :param conv_layers: sequence of widths for intermediate layers of convnet
+    :param dropout_rate: Dropout rate to apply to each of the hidden layers
+    :param use_bias: Include a bias parameter in linear layers
+    """
+
+    def __init__(
+        self,
+        *,
+        n_input: int,
+        layers: Sequence[int],
+        conv_layers: Sequence[int],
+        dropout_rate: float = 0.1,
+        use_bias: bool = True,
+    ):
+        super(ConvNetBlock, self).__init__()
+
+        self.layers = make_fc_layers(
+            layers=[n_input] + layers + [n_input],
+            dropout_rate=dropout_rate,
+            use_bias=use_bias,
+        )
+
+        # shrink the initial weights
+        for layer in self.layers:
+            for module in layer:
+                if isinstance(module, nn.Linear):
+                    module.weight.data.div_(10.0)
+
+        self.conv_layers = make_conv_layers(
+            layers=[2] + conv_layers + [1], dropout_rate=dropout_rate
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.conv_layers(torch.stack([self.layers(x), x], dim=1)).squeeze()
