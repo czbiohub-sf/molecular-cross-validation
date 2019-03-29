@@ -24,8 +24,8 @@ class CosineWithRestarts(torch.optim.lr_scheduler._LRScheduler):
     def __init__(
         self,
         optimizer: torch.optim.Optimizer,
-        t_max: int,
-        eta_min: float = 0.0,
+        t_max: int = 128,
+        eta_min: float = 1e-4,
         last_epoch: int = -1,
         factor: float = 1.0,
     ) -> None:
