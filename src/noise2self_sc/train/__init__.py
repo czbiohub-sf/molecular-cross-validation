@@ -180,7 +180,7 @@ def mse_loop(
             data = tuple(x.cuda() for x in data)
 
         y = eval_t(model(training_t(data[0])))
-        mse = F.mse_loss(ground_truth, y.cpu().detach().flatten())
+        mse = F.mse_loss(ground_truth, y.detach().flatten())
 
         total_epoch_mse += mse.data.item()
 
