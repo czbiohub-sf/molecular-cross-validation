@@ -147,6 +147,46 @@ def validate_loop(
     return total_epoch_loss / len(validation_data)
 
 
+def mse_loop(
+    model: nn.Module,
+    ground_truth: torch.Tensor,
+    data_loader: DataLoader,
+    training_t: Transform,
+    eval_t: Transform,
+    use_cuda: bool,
+):
+    """Iterate through a data loader and compute the mean-squared-error to a given
+    "ground truth" tensor
+
+    :param model: a torch Module that can take input data and return the prediction
+    :param ground_truth: the presumed ground truth for these data
+    :param data_loader: dataset to iterate through and produce predictions. The first
+                        element will be passed to the model
+    :param training_t: Transformation to the data when training the model
+    :param eval_t: Transformation when comparing to ground truth
+    :param use_cuda: Whether to use the GPU
+    :return: the mean squared error averaged over the number of batches
+    """
+    data_index = data_loader.sampler.indices
+    if use_cuda:
+        ground_truth = ground_truth[data_index, :].cuda().flatten()
+    else:
+        ground_truth = ground_truth[data_index, :].flatten()
+
+    total_epoch_mse = 0.0
+
+    for data in data_loader:
+        if use_cuda:
+            data = tuple(x.cuda() for x in data)
+
+        y = eval_t(model(training_t(data[0])))
+        mse = F.mse_loss(ground_truth, y.cpu().detach().flatten())
+
+        total_epoch_mse += mse.data.item()
+
+    return total_epoch_mse / len(data_loader)
+
+
 def cosine_loop(
     model: nn.Module,
     ground_truth: torch.Tensor,
@@ -276,8 +316,8 @@ def train_until_plateau(
 
     train_loss = []
     val_loss = []
-    train_corr = []
-    val_corr = []
+    train_mse = []
+    val_mse = []
 
     scheduler = CosineWithRestarts(optim, **scheduler_kw)
     best = np.inf
@@ -297,18 +337,16 @@ def train_until_plateau(
         )
 
         if ground_truth is not None:
-            model.eval()
-            train_corr.append(
-                correlation_loop(
+            train_mse.append(
+                mse_loop(
                     model, ground_truth, training_data, training_t, eval_t, use_cuda
                 )
             )
-            val_corr.append(
-                correlation_loop(
+            val_mse.append(
+                mse_loop(
                     model, ground_truth, validation_data, training_t, eval_t, use_cuda
                 )
             )
-            model.train()
 
         scheduler.step()
         if scheduler.starting_cycle:
@@ -323,4 +361,4 @@ def train_until_plateau(
             elif cycle >= min_cycles:
                 break
 
-    return train_loss, val_loss, train_corr, val_corr
+    return train_loss, val_loss, train_mse, val_mse
