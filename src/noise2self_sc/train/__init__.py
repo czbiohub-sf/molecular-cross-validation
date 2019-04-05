@@ -3,6 +3,7 @@
 import itertools
 import warnings
 
+from collections import defaultdict
 from typing import Callable, Sequence, Tuple, Union
 
 import numpy as np
@@ -157,12 +158,12 @@ def train_until_plateau(
     optim: Optimizer,
     training_data: DataLoader,
     validation_data: DataLoader,
-    training_t: Transform,
-    training_i: int,
-    criterion_t: Transform,
-    criterion_i: int,
-    evaluation_t: Transform,
-    evaluation_i: Sequence[int],
+    training_t: Transform = None,
+    training_i: int = 0,
+    criterion_t: Transform = None,
+    criterion_i: int = 1,
+    evaluation_t: Transform = None,
+    evaluation_i: Sequence[int] = (1, 2),
     min_cycles: int = 3,
     threshold: float = 0.01,
     scheduler_kw: dict = None,
@@ -198,6 +199,8 @@ def train_until_plateau(
         training_t = lambda x: x
     if criterion_t is None:
         criterion_t = lambda x: x
+    if evaluation_t is None:
+        evaluation_t = lambda x: x
 
     if scheduler_kw is None:
         scheduler_kw = dict()
