@@ -75,6 +75,7 @@ def train_loop(
     optim: Optimizer,
     data_loader: DataLoader,
     training_t: Transform,
+    training_i: int,
     criterion_t: Transform,
     criterion_i: int,
     use_cuda: bool,
@@ -88,6 +89,7 @@ def train_loop(
                         is used as input and the last is the target. If the tuple has
                         only one element then it's used for both
     :param training_t: Transformation to the data when training the model
+    :param training_i: index of the data (from DataLoader tuple) when training the model
     :param criterion_t: Transformation to the data when scoring the output
     :param criterion_i: index of the data (from DataLoader tuple) to score against
     :param use_cuda: whether to use the GPU
@@ -99,7 +101,7 @@ def train_loop(
         if use_cuda:
             data = tuple(x.cuda() for x in data)
 
-        y = model(training_t(data[0]))
+        y = model(training_t(data[training_i]))
         loss = criterion(y, criterion_t(data[criterion_i]))
 
         total_epoch_loss += loss.data.item()
@@ -116,6 +118,7 @@ def validate_loop(
     criterion: nn.Module,
     data_loader: DataLoader,
     training_t: Transform,
+    training_i: int,
     criterion_t: Transform,
     criterion_i: int,
     use_cuda: bool,
@@ -128,6 +131,7 @@ def validate_loop(
                         is used as input and the last is the target. If the tuple has
                         only one element then it's used for both
     :param training_t: Transformation to the data when training the model
+    :param training_i: index of the data (from DataLoader tuple) when training the model
     :param criterion_t: Transformation to the data when scoring the output
     :param criterion_i: index of the data (from DataLoader tuple) to score against
     :param use_cuda: whether to use the GPU
@@ -139,7 +143,7 @@ def validate_loop(
         if use_cuda:
             data = tuple(x.cuda() for x in data)
 
-        y = model(training_t(data[0]))
+        y = model(training_t(data[training_i]))
         loss = criterion(y, criterion_t(data[criterion_i]))
 
         total_epoch_loss += loss.data.item()
@@ -156,6 +160,8 @@ def train_until_plateau(
     training_t: Transform,
     training_i: int,
     criterion_t: Transform,
+    criterion_i: int,
+    evaluation_t: Transform,
     evaluation_i: Sequence[int],
     min_cycles: int = 3,
     threshold: float = 0.01,
@@ -175,7 +181,9 @@ def train_until_plateau(
     :param training_t: Transformation to the data when training the model
     :param training_i: Which of the tensors to use as the training target
     :param criterion_t: Transformation to the data when scoring the output
-    :param evaluation_i: Which of the tensors to use for evaluation
+    :param criterion_i: Which of the tensors to use for scoring
+    :param evaluation_t: Transformation to the data when evaluating ground truth
+    :param evaluation_i: Which of the tensors to use for evaluation (can be multiple)
     :param min_cycles: Minimum number of cycles to run before checking for convergence
     :param threshold: Tolerance threshold for calling convergence
     :param scheduler_kw: dictionary of keyword arguments for CosineWithRestarts
@@ -213,8 +221,9 @@ def train_until_plateau(
                 optim=optim,
                 data_loader=training_data,
                 training_t=training_t,
+                training_i=training_i,
                 criterion_t=criterion_t,
-                criterion_i=training_i,
+                criterion_i=criterion_i,
                 use_cuda=use_cuda,
             )
         )
@@ -225,8 +234,9 @@ def train_until_plateau(
                 criterion=criterion,
                 data_loader=validation_data,
                 training_t=training_t,
+                training_i=training_i,
                 criterion_t=criterion_t,
-                criterion_i=training_i,
+                criterion_i=criterion_i,
                 use_cuda=use_cuda,
             )
         )
@@ -239,7 +249,8 @@ def train_until_plateau(
                     criterion=criterion,
                     data_loader=training_data,
                     training_t=training_t,
-                    criterion_t=criterion_t,
+                    training_i=training_i,
+                    criterion_t=evaluation_t,
                     criterion_i=eval_i,
                     use_cuda=use_cuda,
                 )
@@ -251,7 +262,8 @@ def train_until_plateau(
                     criterion=criterion,
                     data_loader=validation_data,
                     training_t=training_t,
-                    criterion_t=criterion_t,
+                    training_i=training_i,
+                    criterion_t=evaluation_t,
                     criterion_i=eval_i,
                     use_cuda=use_cuda,
                 )
