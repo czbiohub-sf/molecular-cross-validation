@@ -7,8 +7,6 @@ from typing import Callable, Tuple, Union
 
 import numpy as np
 
-import scipy.spatial.distance as sdist
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -66,16 +64,19 @@ class Noise2SelfDataLoader(DataLoader):
             y_data = y_data.cuda()
 
         for indices in iter(self.batch_sampler):
-            yield x_data[indices], y_data[indices]
+            yield (x_data[indices], y_data[indices]) + tuple(
+                d[indices] for d in self.dataset.tensors[1:]
+            )
 
 
 def train_loop(
     model: nn.Module,
     criterion: nn.Module,
     optim: Optimizer,
-    training_data: DataLoader,
+    data_loader: DataLoader,
     training_t: Transform,
     criterion_t: Transform,
+    criterion_i: int,
     use_cuda: bool,
 ):
     """Iterate through training data, compute losses and take gradient steps
@@ -83,22 +84,23 @@ def train_loop(
     :param model: a torch Module that can take input data and return the prediction
     :param criterion: a loss function
     :param optim: a torch Optimizer
-    :param training_data: training dataset. Should produce a tuple of tensors: the
-                            first is used as input and the last is the target. If the
-                            tuple has only one element then it's used for both
+    :param data_loader: training dataset. Should produce a tuple of tensors: the first
+                        is used as input and the last is the target. If the tuple has
+                        only one element then it's used for both
     :param training_t: Transformation to the data when training the model
     :param criterion_t: Transformation to the data when scoring the output
+    :param criterion_i: index of the data (from DataLoader tuple) to score against
     :param use_cuda: whether to use the GPU
     :return: total loss for the epoch, averaged over the number of batches
     """
     total_epoch_loss = 0.0
 
-    for data in training_data:
+    for data in data_loader:
         if use_cuda:
             data = tuple(x.cuda() for x in data)
 
         y = model(training_t(data[0]))
-        loss = criterion(y, criterion_t(data[-1]))
+        loss = criterion(y, criterion_t(data[criterion_i]))
 
         total_epoch_loss += loss.data.item()
 
@@ -106,163 +108,43 @@ def train_loop(
         loss.backward()
         optim.step()
 
-    return total_epoch_loss / len(training_data)
+    return total_epoch_loss / len(data_loader)
 
 
 def validate_loop(
     model: nn.Module,
     criterion: nn.Module,
-    optim: Optimizer,
-    validation_data: DataLoader,
+    data_loader: DataLoader,
     training_t: Transform,
     criterion_t: Transform,
+    criterion_i: int,
     use_cuda: bool,
 ):
     """Iterate through test data and compute losses
 
     :param model: a torch Module that can take input data and return the prediction
     :param criterion: a loss function
-    :param optim: a torch Optimizer (will zero the gradient after testing)
-    :param validation_data: validation dataset. Should produce a tuple of tensors: the
-                            first is used as input and the last is the target. If the
-                            tuple has only one element then it's used for both
+    :param data_loader: validation dataset. Should produce a tuple of tensors: the first
+                        is used as input and the last is the target. If the tuple has
+                        only one element then it's used for both
     :param training_t: Transformation to the data when training the model
     :param criterion_t: Transformation to the data when scoring the output
+    :param criterion_i: index of the data (from DataLoader tuple) to score against
     :param use_cuda: whether to use the GPU
     :return: total loss for the epoch, averaged over the number of batches
     """
     total_epoch_loss = 0.0
 
-    for data in validation_data:
+    for data in data_loader:
         if use_cuda:
             data = tuple(x.cuda() for x in data)
 
         y = model(training_t(data[0]))
-        loss = criterion(y, criterion_t(data[-1]))
+        loss = criterion(y, criterion_t(data[criterion_i]))
 
         total_epoch_loss += loss.data.item()
 
-    optim.zero_grad()
-
-    return total_epoch_loss / len(validation_data)
-
-
-def mse_loop(
-    model: nn.Module,
-    ground_truth: torch.Tensor,
-    data_loader: DataLoader,
-    training_t: Transform,
-    eval_t: Transform,
-    use_cuda: bool,
-):
-    """Iterate through a data loader and compute the mean-squared-error to a given
-    "ground truth" tensor
-
-    :param model: a torch Module that can take input data and return the prediction
-    :param ground_truth: the presumed ground truth for these data
-    :param data_loader: dataset to iterate through and produce predictions. The first
-                        element will be passed to the model
-    :param training_t: Transformation to the data when training the model
-    :param eval_t: Transformation when comparing to ground truth
-    :param use_cuda: Whether to use the GPU
-    :return: the mean squared error averaged over the number of batches
-    """
-    data_index = data_loader.sampler.indices
-    if use_cuda:
-        ground_truth = ground_truth[data_index, :].cuda().flatten()
-    else:
-        ground_truth = ground_truth[data_index, :].flatten()
-
-    total_epoch_mse = 0.0
-
-    for data in data_loader:
-        if use_cuda:
-            data = tuple(x.cuda() for x in data)
-
-        y = eval_t(model(training_t(data[0])))
-        mse = F.mse_loss(ground_truth, y.detach().flatten())
-
-        total_epoch_mse += mse.data.item()
-
-    return total_epoch_mse / len(data_loader)
-
-
-def cosine_loop(
-    model: nn.Module,
-    ground_truth: torch.Tensor,
-    data_loader: DataLoader,
-    training_t: Transform,
-    eval_t: Transform,
-    use_cuda: bool,
-):
-    """Iterate through a data loader and compute the cosine similarity to a given
-    "ground truth" tensor
-
-    :param model: a torch Module that can take input data and return the prediction
-    :param ground_truth: the presumed ground truth for these data
-    :param data_loader: dataset to iterate through and produce predictions. The first
-                        element will be passed to the model
-    :param training_t: Transformation to the data when training the model
-    :param eval_t: Transformation when comparing to ground truth
-    :param use_cuda: Whether to use the GPU
-    :return: the cosine similarity averaged over the number of batches
-    """
-    data_index = data_loader.sampler.indices
-    if use_cuda:
-        ground_truth = ground_truth[data_index, :].cuda().flatten()
-    else:
-        ground_truth = ground_truth[data_index, :].flatten()
-
-    total_epoch_sim = 0.0
-
-    for data in data_loader:
-        if use_cuda:
-            data = tuple(x.cuda() for x in data)
-
-        y = eval_t(model(training_t(data[0])))
-        sim = F.cosine_similarity(ground_truth, y.detach().flatten(), dim=0)
-
-        total_epoch_sim += sim.data.item()
-
-    return total_epoch_sim / len(data_loader)
-
-
-def correlation_loop(
-    model: nn.Module,
-    ground_truth: Union[torch.Tensor, np.ndarray],
-    data_loader: DataLoader,
-    training_t: Transform,
-    eval_t: Transform,
-    use_cuda: bool,
-):
-    """Iterate through a data loader and compute the correlation distance to a given
-    "ground truth" array
-
-    :param model: a torch Module that can take input data and return the prediction1
-    :param ground_truth: the presumed ground truth for these data
-    :param data_loader: dataset to iterate through and produce predictions. The first
-                        element will be passed to the model
-    :param training_t: Transformation to the data when training the model
-    :param eval_t: Transformation when comparing to ground truth
-    :param use_cuda: Whether to use the GPU
-    :return: the correlation distance averaged over the number of batches
-    """
-
-    data_index = data_loader.sampler.indices
-    ground_truth = np.asarray(ground_truth[data_index, :]).flatten()
-
-    total_epoch_dist = 0.0
-
-    for data in data_loader:
-        if use_cuda:
-            data = tuple(x.cuda() for x in data)
-
-        y = eval_t(model(training_t(data[0])))
-        dist = sdist.correlation(ground_truth, y.cpu().detach().flatten().numpy())
-
-        total_epoch_dist += dist
-
-    return total_epoch_dist / len(data_loader)
+    return total_epoch_loss / len(data_loader)
 
 
 def train_until_plateau(
@@ -273,8 +155,6 @@ def train_until_plateau(
     validation_data: DataLoader,
     training_t: Transform = None,
     crit_t: Transform = None,
-    eval_t: Transform = None,
-    ground_truth: Union[torch.Tensor, np.ndarray] = None,
     min_cycles: int = 3,
     threshold: float = 0.01,
     scheduler_kw: dict = None,
@@ -292,8 +172,6 @@ def train_until_plateau(
     :param validation_data: Validation dataset in the same format
     :param training_t: Transformation to the data when training the model
     :param crit_t: Transformation to the data when scoring the output
-    :param eval_t: Transformation when comparing to ground truth
-    :param ground_truth: The presumed ground truth for these data
     :param min_cycles: Minimum number of cycles to run before checking for convergence
     :param threshold: Tolerance threshold for calling convergence
     :param scheduler_kw: dictionary of keyword arguments for CosineWithRestarts
@@ -308,16 +186,14 @@ def train_until_plateau(
         training_t = lambda x: x
     if crit_t is None:
         crit_t = lambda x: x
-    if eval_t is None:
-        eval_t = lambda x: x
 
     if scheduler_kw is None:
         scheduler_kw = dict()
 
     train_loss = []
     val_loss = []
-    train_mse = []
-    val_mse = []
+    train_eval = []
+    val_eval = []
 
     scheduler = CosineWithRestarts(optim, **scheduler_kw)
     best = np.inf
@@ -325,28 +201,55 @@ def train_until_plateau(
     cycle = 0
 
     for epoch in itertools.count():
+        optim.zero_grad()  # just make sure things are zeroed before train loop
         train_loss.append(
             train_loop(
-                model, criterion, optim, training_data, training_t, crit_t, use_cuda
-            )
-        )
-        val_loss.append(
-            validate_loop(
-                model, criterion, optim, validation_data, training_t, crit_t, use_cuda
+                model=model,
+                criterion=criterion,
+                optim=optim,
+                data_loader=training_data,
+                training_t=training_t,
+                criterion_t=crit_t,
+                criterion_i=1,
+                use_cuda=use_cuda,
             )
         )
 
-        if ground_truth is not None:
-            train_mse.append(
-                mse_loop(
-                    model, ground_truth, training_data, training_t, eval_t, use_cuda
-                )
+        val_loss.append(
+            validate_loop(
+                model=model,
+                criterion=criterion,
+                data_loader=validation_data,
+                training_t=training_t,
+                criterion_t=crit_t,
+                criterion_i=1,
+                use_cuda=use_cuda,
             )
-            val_mse.append(
-                mse_loop(
-                    model, ground_truth, validation_data, training_t, eval_t, use_cuda
-                )
+        )
+
+        train_eval.append(
+            validate_loop(
+                model=model,
+                criterion=criterion,
+                data_loader=training_data,
+                training_t=training_t,
+                criterion_t=crit_t,
+                criterion_i=2,
+                use_cuda=use_cuda,
             )
+        )
+
+        val_eval.append(
+            validate_loop(
+                model=model,
+                criterion=criterion,
+                data_loader=validation_data,
+                training_t=training_t,
+                criterion_t=crit_t,
+                criterion_i=2,
+                use_cuda=use_cuda,
+            )
+        )
 
         scheduler.step()
         if scheduler.starting_cycle:
@@ -361,4 +264,4 @@ def train_until_plateau(
             elif cycle >= min_cycles:
                 break
 
-    return train_loss, val_loss, train_mse, val_mse
+    return train_loss, val_loss, train_eval, val_eval
