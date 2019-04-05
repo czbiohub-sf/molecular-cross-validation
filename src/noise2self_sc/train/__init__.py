@@ -3,7 +3,7 @@
 import itertools
 import warnings
 
-from typing import Callable, Tuple, Union
+from typing import Callable, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -153,8 +153,10 @@ def train_until_plateau(
     optim: Optimizer,
     training_data: DataLoader,
     validation_data: DataLoader,
-    training_t: Transform = None,
-    crit_t: Transform = None,
+    training_t: Transform,
+    training_i: int,
+    criterion_t: Transform,
+    evaluation_i: Sequence[int],
     min_cycles: int = 3,
     threshold: float = 0.01,
     scheduler_kw: dict = None,
@@ -171,7 +173,9 @@ def train_until_plateau(
                           the last are considered to be input and the last is the target
     :param validation_data: Validation dataset in the same format
     :param training_t: Transformation to the data when training the model
-    :param crit_t: Transformation to the data when scoring the output
+    :param training_i: Which of the tensors to use as the training target
+    :param criterion_t: Transformation to the data when scoring the output
+    :param evaluation_i: Which of the tensors to use for evaluation
     :param min_cycles: Minimum number of cycles to run before checking for convergence
     :param threshold: Tolerance threshold for calling convergence
     :param scheduler_kw: dictionary of keyword arguments for CosineWithRestarts
@@ -184,16 +188,16 @@ def train_until_plateau(
 
     if training_t is None:
         training_t = lambda x: x
-    if crit_t is None:
-        crit_t = lambda x: x
+    if criterion_t is None:
+        criterion_t = lambda x: x
 
     if scheduler_kw is None:
         scheduler_kw = dict()
 
     train_loss = []
     val_loss = []
-    train_eval = []
-    val_eval = []
+    train_eval = defaultdict(list)
+    val_eval = defaultdict(list)
 
     scheduler = CosineWithRestarts(optim, **scheduler_kw)
     best = np.inf
@@ -209,8 +213,8 @@ def train_until_plateau(
                 optim=optim,
                 data_loader=training_data,
                 training_t=training_t,
-                criterion_t=crit_t,
-                criterion_i=1,
+                criterion_t=criterion_t,
+                criterion_i=training_i,
                 use_cuda=use_cuda,
             )
         )
@@ -221,35 +225,37 @@ def train_until_plateau(
                 criterion=criterion,
                 data_loader=validation_data,
                 training_t=training_t,
-                criterion_t=crit_t,
-                criterion_i=1,
+                criterion_t=criterion_t,
+                criterion_i=training_i,
                 use_cuda=use_cuda,
             )
         )
 
-        train_eval.append(
-            validate_loop(
-                model=model,
-                criterion=criterion,
-                data_loader=training_data,
-                training_t=training_t,
-                criterion_t=crit_t,
-                criterion_i=2,
-                use_cuda=use_cuda,
-            )
-        )
+        for eval_i in evaluation_i:
 
-        val_eval.append(
-            validate_loop(
-                model=model,
-                criterion=criterion,
-                data_loader=validation_data,
-                training_t=training_t,
-                criterion_t=crit_t,
-                criterion_i=2,
-                use_cuda=use_cuda,
+            train_eval[eval_i].append(
+                validate_loop(
+                    model=model,
+                    criterion=criterion,
+                    data_loader=training_data,
+                    training_t=training_t,
+                    criterion_t=criterion_t,
+                    criterion_i=eval_i,
+                    use_cuda=use_cuda,
+                )
             )
-        )
+
+            val_eval[eval_i].append(
+                validate_loop(
+                    model=model,
+                    criterion=criterion,
+                    data_loader=validation_data,
+                    training_t=training_t,
+                    criterion_t=criterion_t,
+                    criterion_i=eval_i,
+                    use_cuda=use_cuda,
+                )
+            )
 
         scheduler.step()
         if scheduler.starting_cycle:
