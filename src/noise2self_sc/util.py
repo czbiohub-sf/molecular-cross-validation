@@ -33,3 +33,9 @@ def standard_scanpy(adata):
     sc.tl.louvain(adata)
 
     return adata
+
+def poisson_expected_sqrt(X, n_samples):
+    Y = np.zeros(X.shape)
+    for i in range(n_samples):
+        Y += np.sqrt(np.random.poisson(X))
+    return Y/n_samples
