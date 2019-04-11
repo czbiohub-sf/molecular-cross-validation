@@ -38,7 +38,7 @@ def sweep_time_per_gene(diff_op, X1, X2, max_t):
     for t in t_range:
         gene_losses[t] = ((denoised - X2) ** 2).sum(axis=0)
 
-        new_best_idx = np.min(gene_losses, axis=0) == gene_losses[t]
+        new_best_idx = (np.min(gene_losses[:(t+1)], axis=0) == gene_losses[t])
         best_denoised[:, new_best_idx] = denoised[:, new_best_idx]
 
         denoised = diff_op.dot(denoised)
