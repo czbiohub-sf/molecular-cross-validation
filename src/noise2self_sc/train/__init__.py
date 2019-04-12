@@ -60,7 +60,7 @@ class Noise2SelfDataLoader(DataLoader):
 
     def __iter__(self):
         x_data = self.b_dist.sample()
-        y_data = self.b_dist.sample()
+        y_data = self.dataset.tensors[0] - x_data
 
         if self.pin_memory:
             x_data = x_data.cuda()
