@@ -54,11 +54,13 @@ class Noise2SelfDataLoader(DataLoader):
     downstream of this class.
     """
 
+    def __init__(self, dataset, **kwargs):
+        super(Noise2SelfDataLoader, self).__init__(dataset=dataset, **kwargs)
+        self.b_dist = torch.distributions.Binomial(self.dataset.tensors[0], probs=0.5)
+
     def __iter__(self):
-        x_data = torch.distributions.Binomial(
-            self.dataset.tensors[0], probs=0.5
-        ).sample()
-        y_data = self.dataset.tensors[0] - x_data
+        x_data = self.b_dist.sample()
+        y_data = self.b_dist.sample()
 
         if self.pin_memory:
             x_data = x_data.cuda()
