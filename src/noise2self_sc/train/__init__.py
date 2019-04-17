@@ -56,15 +56,19 @@ class Noise2SelfDataLoader(DataLoader):
 
     def __init__(self, dataset, **kwargs):
         super(Noise2SelfDataLoader, self).__init__(dataset=dataset, **kwargs)
-        self.b_dist = torch.distributions.Binomial(self.dataset.tensors[0], probs=0.5)
+
+        if kwargs.get("pin_memory", False):
+            self.b_dist = torch.distributions.Binomial(
+                self.dataset.tensors[0].cuda(), probs=0.5
+            )
+        else:
+            self.b_dist = torch.distributions.Binomial(
+                self.dataset.tensors[0], probs=0.5
+            )
 
     def __iter__(self):
         x_data = self.b_dist.sample()
-        y_data = self.dataset.tensors[0] - x_data
-
-        if self.pin_memory:
-            x_data = x_data.cuda()
-            y_data = y_data.cuda()
+        y_data = self.b_dist.total_count - x_data
 
         for indices in iter(self.batch_sampler):
             yield (x_data[indices], y_data[indices]) + tuple(
