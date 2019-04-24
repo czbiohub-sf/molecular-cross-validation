@@ -223,6 +223,8 @@ def train_until_plateau(
 
     for epoch in itertools.count():
         optim.zero_grad()  # just make sure things are zeroed before train loop
+        model.train()
+
         train_loss.append(
             train_loop(
                 model=model,
@@ -237,6 +239,7 @@ def train_until_plateau(
             )
         )
 
+        model.eval()
         val_loss.append(
             validate_loop(
                 model=model,
@@ -251,7 +254,6 @@ def train_until_plateau(
         )
 
         for eval_i in evaluation_i:
-
             train_eval[eval_i].append(
                 validate_loop(
                     model=model,
