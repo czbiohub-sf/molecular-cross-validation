@@ -10,27 +10,35 @@ from noise2self_sc.data.simulate import simulate_classes
 
 
 def split_dataset(
-    *xs: torch.Tensor, batch_size: int, train_p: float, use_cuda: bool = False
+    *xs: torch.Tensor,
+    batch_size: int,
+    indices: np.ndarray = None,
+    n_train: int = None,
+    noise2self: bool = False,
 ):
-    n_cells = xs[0].shape[0]
+    if indices is None:
+        indices = np.random.permutation(xs[0].shape[0])
 
-    example_indices = np.random.permutation(n_cells)
-    n_train = int(train_p * n_cells)
+    if n_train is None:
+        n_train = int(0.875 * xs[0].shape[0])
 
-    dataset = TensorDataset(*xs)
+    if noise2self:
+        ds = TensorDataset(xs[0] + xs[1], *xs[2:])
+        dataloader_cls = Noise2SelfDataLoader
+    else:
+        ds = TensorDataset(*xs)
+        dataloader_cls = DataLoader
 
-    data_loader_train = DataLoader(
-        dataset=dataset,
+    training_dl = dataloader_cls(
+        dataset=ds,
         batch_size=batch_size,
-        pin_memory=use_cuda,
-        sampler=SubsetRandomSampler(example_indices[:n_train]),
+        sampler=SubsetRandomSampler(indices[:n_train]),
     )
 
-    data_loader_test = DataLoader(
-        dataset=dataset,
+    validation_dl = dataloader_cls(
+        dataset=ds,
         batch_size=batch_size,
-        pin_memory=use_cuda,
-        sampler=SubsetRandomSampler(example_indices[n_train:]),
+        sampler=SubsetRandomSampler(indices[n_train:]),
     )
 
-    return data_loader_train, data_loader_test
+    return training_dl, validation_dl
