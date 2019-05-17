@@ -42,6 +42,13 @@ def poisson_expected_sqrt(X, n_samples):
         Y += np.sqrt(np.random.poisson(X))
     return Y/n_samples
 
+def poisson_log_lik(mu, k, per_gene = False, jitter=1e-6):
+    mu += jitter
+    if per_gene:
+        return (mu - k*np.log(mu)).mean(axis = 0)
+    else:
+        return (mu - k*np.log(mu)).mean()
+
 
 def expected_sqrt(mean, samples=None):
     """Return expected square root of a poisson distribution. Expects ndarray input.
