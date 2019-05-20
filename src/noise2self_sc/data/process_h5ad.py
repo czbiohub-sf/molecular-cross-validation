@@ -98,9 +98,6 @@ if __name__ == "__main__":
     print(f"filtered to {args.n_cells} deepest cells")
     umis = umis[top_cells, :]
     cell_count = cell_count[top_cells]
-    if args.subsample:
-        # otherwise the estimated means will be wrong
-        assert np.all(args.subsample < cell_count)
 
     # score genes based on poisson fit
     exp_p = poisson_fit(umis)
@@ -110,10 +107,7 @@ if __name__ == "__main__":
     umis = umis[:, bottom_genes]
 
     # calculating expected means from deep data
-    p = umis / umis.sum(1, keepdims=True)
-
-    umi_means = 0.5 * (args.subsample or cell_count[:,None]) * p
-    expected_sqrt_umis = expected_sqrt(umi_means)
+    true_means = umis / umis.sum(1, keepdims=True)
 
     if args.subsample:
         print(f"downsampling to {args.subsample} counts per cell")
@@ -121,10 +115,9 @@ if __name__ == "__main__":
             sc.AnnData(umis), args.subsample, replace=False, copy=True
         ).X.astype(int)
 
-    # throw out empty features in subset
-    umis_nz = umis.sum(0) > 0
-    umis = umis[:, umis_nz]
-    expected_sqrt_umis = expected_sqrt_umis[:, umis_nz]
+    umi_means = 0.5 * true_means * umis.sum(1, keepdims=True)
+    expected_sqrt_umis = expected_sqrt(umi_means)
+
     print(f"final umi matrix: {umis.shape}")
 
     print("making n2s split")
@@ -132,7 +125,7 @@ if __name__ == "__main__":
     umis_Y = umis - umis_X
 
     with open(dataset_file, "wb") as out:
-        pickle.dump((expected_sqrt_umis, umis_X, umis_Y), out)
+        pickle.dump((true_means, expected_sqrt_umis, umis_X, umis_Y), out)
 
     example_indices = np.random.permutation(umis.shape[0])
     n_train = int(0.875 * umis.shape[0])

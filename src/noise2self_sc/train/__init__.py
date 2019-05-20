@@ -219,6 +219,7 @@ def train_until_plateau(
     scheduler = CosineWithRestarts(optim, **scheduler_kw)
     best = np.inf
     rel_epsilon = 1.0 - threshold
+    neg_epsilon = 1.0 + threshold
     cycle = 0
 
     for epoch in itertools.count():
@@ -288,7 +289,9 @@ def train_until_plateau(
                 )
             cycle += 1
 
-            if val_loss[-1] < best * rel_epsilon:
+            if 0 <= val_loss[-1] < best * rel_epsilon:
+                best = val_loss[-1]
+            elif 0 > val_loss[-1] and val_loss[-1] < best * neg_epsilon:
                 best = val_loss[-1]
             elif cycle >= min_cycles:
                 break
