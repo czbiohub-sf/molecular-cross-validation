@@ -37,17 +37,22 @@ def poisson_fit(gene_reads):
 def expected_sqrt(mean):
     """Return expected square root of a poisson distribution. Expects ndarray input.
     Uses Taylor series centered at 0 or mean, as appropriate."""
-    
+
     truncated_taylor_around_0 = np.zeros(mean.shape)
-    nonzeros = (mean != 0)
+    nonzeros = mean != 0
     mean = mean + 1e-8
     for k in range(15):
-        truncated_taylor_around_0 += mean**k / math.factorial(k) * np.sqrt(k)
-        
+        truncated_taylor_around_0 += mean ** k / math.factorial(k) * np.sqrt(k)
+
     truncated_taylor_around_0 *= np.exp(-mean)
-    truncated_taylor_around_mean = np.sqrt(mean) - np.sqrt(mean)**(-0.5)/8 + np.sqrt(mean)**(-1.5)/16
-    
-    return nonzeros * (truncated_taylor_around_0 * (mean < 4) + truncated_taylor_around_mean * (mean >= 4))
+    truncated_taylor_around_mean = (
+        np.sqrt(mean) - np.sqrt(mean) ** (-0.5) / 8 + np.sqrt(mean) ** (-1.5) / 16
+    )
+
+    return nonzeros * (
+        truncated_taylor_around_0 * (mean < 4)
+        + truncated_taylor_around_mean * (mean >= 4)
+    )
 
 
 if __name__ == "__main__":

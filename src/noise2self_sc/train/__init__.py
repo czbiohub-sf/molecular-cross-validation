@@ -14,6 +14,7 @@ import torch.nn.functional as F
 
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
+from torch.utils.clip_grab import clip_grad_norm_
 
 from noise2self_sc.train.cosine_scheduler import CosineWithRestarts
 
@@ -86,6 +87,7 @@ def train_loop(
     criterion_t: Transform,
     criterion_i: int,
     use_cuda: bool,
+    clip_norm: float = None,
 ):
     """Iterate through training data, compute losses and take gradient steps
 
@@ -100,6 +102,7 @@ def train_loop(
     :param criterion_t: Transformation to the data when scoring the output
     :param criterion_i: index of the data (from DataLoader tuple) to score against
     :param use_cuda: whether to use the GPU
+    :param clip_norm: clip gradient norm to a given absolute value
     :return: total loss for the epoch, averaged over the number of batches
     """
     total_epoch_loss = 0.0
@@ -115,6 +118,8 @@ def train_loop(
 
         optim.zero_grad()
         loss.backward()
+        if clip_norm is not None:
+            clip_grad_norm_(model.parameters(), clip_norm)
         optim.step()
 
     return total_epoch_loss / len(data_loader)
