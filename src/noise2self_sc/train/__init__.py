@@ -173,7 +173,6 @@ def train_until_plateau(
     training_i: int = 0,
     criterion_t: Transform = None,
     criterion_i: int = 1,
-    evaluation_t: Transform = None,
     evaluation_i: Sequence[int] = (1, 2),
     min_cycles: int = 3,
     threshold: float = 0.01,
@@ -194,7 +193,6 @@ def train_until_plateau(
     :param training_i: Which of the tensors to use as the training target
     :param criterion_t: Transformation to the data when scoring the output
     :param criterion_i: Which of the tensors to use for scoring
-    :param evaluation_t: Transformation to the data when evaluating ground truth
     :param evaluation_i: Which of the tensors to use for evaluation (can be multiple)
     :param min_cycles: Minimum number of cycles to run before checking for convergence
     :param threshold: Tolerance threshold for calling convergence
@@ -210,8 +208,6 @@ def train_until_plateau(
         training_t = lambda x: x
     if criterion_t is None:
         criterion_t = lambda x: x
-    if evaluation_t is None:
-        evaluation_t = lambda x: x
 
     if scheduler_kw is None:
         scheduler_kw = dict()
@@ -241,6 +237,7 @@ def train_until_plateau(
                 training_i=training_i,
                 criterion_t=criterion_t,
                 criterion_i=criterion_i,
+                clip_norm=100.0,
                 use_cuda=use_cuda,
             )
         )
@@ -267,7 +264,7 @@ def train_until_plateau(
                     data_loader=training_data,
                     training_t=training_t,
                     training_i=training_i,
-                    criterion_t=evaluation_t,
+                    criterion_t=criterion_t,
                     criterion_i=eval_i,
                     use_cuda=use_cuda,
                 )
@@ -280,7 +277,7 @@ def train_until_plateau(
                     data_loader=validation_data,
                     training_t=training_t,
                     training_i=training_i,
-                    criterion_t=evaluation_t,
+                    criterion_t=criterion_t,
                     criterion_i=eval_i,
                     use_cuda=use_cuda,
                 )
@@ -301,4 +298,9 @@ def train_until_plateau(
             elif cycle >= min_cycles:
                 break
 
-    return train_loss, val_loss, train_eval, val_eval
+    return (
+        train_loss,
+        val_loss,
+        *(train_eval[i] for i in evaluation_i),
+        *(val_eval[i] for i in evaluation_i),
+    )
