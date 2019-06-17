@@ -94,22 +94,25 @@ if __name__ == "__main__":
     else:
         umis = np.asarray(data.X.astype(int))
 
-    # count umis per cell
-    cell_count = umis.sum(1)
-
     # take top cells by umi count
-    top_cells = cell_count.argsort() >= (cell_count.shape[0] - args.n_cells)
+    if args.n_cells < umis.shape[0]:
+        # count umis per cell
+        cell_count = umis.sum(1)
 
-    print(f"filtered to {args.n_cells} deepest cells")
-    umis = umis[top_cells, :]
-    cell_count = cell_count[top_cells]
+        top_cells = cell_count >= sorted(cell_count)[-args.n_cells]
 
-    # score genes based on poisson fit
-    exp_p = poisson_fit(umis)
-    print(f"filtering to {args.n_genes} genes")
-    bottom_genes = exp_p.argsort() < args.n_genes
+        print(f"filtered to {args.n_cells} deepest cells")
+        umis = umis[top_cells, :]
 
-    umis = umis[:, bottom_genes]
+    # take most variable genes by poisson fit
+    if args.n_genes < umis.shape[1]:
+        # compute deviation from poisson model
+        exp_p = poisson_fit(umis)
+
+        top_genes = exp_p < sorted(exp_p)[args.n_genes]
+
+        print(f"filtering to {args.n_genes} genes")
+        umis = umis[:, top_genes]
 
     # calculating expected means from deep data
     true_means = umis / umis.sum(1, keepdims=True)
