@@ -5,6 +5,7 @@ import collections
 import logging
 import pathlib
 import pickle
+import time
 
 import numpy as np
 
@@ -33,8 +34,10 @@ data_group.add_argument("--training", type=pathlib.Path, required=True)
 data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
 
 model_group = parser.add_argument_group("model", description="Model parameters")
-model_group.add_argument("--layers", nargs="+", type=int, default=(128,))
-model_group.add_argument("--max_bottleneck", type=int, default=128)
+model_group.add_argument("--layers", nargs="+", type=int, default=[128])
+model_group.add_argument(
+    "--max_bottleneck", type=int, default=7, help="max bottleneck (log2)"
+)
 model_group.add_argument("--n2s", action="store_true", help="self-supervised training")
 model_group.add_argument("--pois", action="store_true", help="poisson loss")
 model_group.add_argument(
@@ -50,6 +53,7 @@ args = parser.parse_args()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
 
 logger.info(f"torch version {torch.__version__}")
 
@@ -78,6 +82,11 @@ bottlenecks = [2 ** i for i in range(1, args.max_bottleneck + 1)]
 bottlenecks.extend(3 * b // 2 for b in bottlenecks[:-1])
 bottlenecks.sort()
 
+logger.info(f"testing bottlenecks {bottlenecks}")
+
+if max(bottlenecks) > max(args.layers):
+    raise ValueError("Max bottleneck width is larger than your network layers")
+
 if args.pois:
     exp_means = torch.from_numpy(true_means).to(torch.float).to(device) * umis_X.sum(
         1, keepdim=True
@@ -102,6 +111,8 @@ def test_bottlenecks(bs, m_factory, opt_factory, criterion, train_data, val_data
     b_results = dict()
     scheduler_kw = {"t_max": 128, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
 
+    t0 = time.time()
+
     for b in bs:
         logger.info(f"testing bottleneck width {b}")
         model = m_factory(b)
@@ -123,6 +134,8 @@ def test_bottlenecks(bs, m_factory, opt_factory, criterion, train_data, val_data
             scheduler_kw=scheduler_kw,
             use_cuda=True,
         )
+
+        logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
     return b_results
 
