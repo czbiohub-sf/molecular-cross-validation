@@ -88,9 +88,9 @@ if max(bottlenecks) > max(args.layers):
     raise ValueError("Max bottleneck width is larger than your network layers")
 
 if args.pois:
-    exp_means = torch.from_numpy(true_means).to(torch.float).to(device) * umis_X.sum(
-        1, keepdim=True
-    )
+    exp_means = (
+        torch.from_numpy(true_means).to(torch.float) * umis_X.sum(1, keepdim=True)
+    ).to(device)
 
     training_t = torch.log1p
     criterion_t = lambda x: x
