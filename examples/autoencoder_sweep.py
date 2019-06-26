@@ -41,7 +41,7 @@ model_group.add_argument(
 model_group.add_argument("--n2s", action="store_true", help="self-supervised training")
 model_group.add_argument("--pois", action="store_true", help="poisson loss")
 model_group.add_argument(
-    "--learning_rate", type=float, default=0.4, help="learning rate"
+    "--learning_rate", type=float, default=0.1, help="learning rate"
 )
 model_group.add_argument(
     "--dropout", type=float, default=0.0, help="dropout probability"
@@ -78,8 +78,8 @@ umis_X = torch.from_numpy(umis_X).to(torch.float)
 umis_Y = torch.from_numpy(umis_Y).to(torch.float)
 
 n_features = umis_X.shape[-1]
-bottlenecks = [2 ** i for i in range(1, args.max_bottleneck + 1)]
-bottlenecks.extend(3 * b // 2 for b in bottlenecks[:-1])
+bottlenecks = [2 ** i for i in range(args.max_bottleneck + 1)]
+bottlenecks.extend(3 * b // 2 for b in bottlenecks[1:-1])
 bottlenecks.sort()
 
 logger.info(f"testing bottlenecks {bottlenecks}")
