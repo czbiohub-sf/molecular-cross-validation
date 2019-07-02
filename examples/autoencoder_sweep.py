@@ -33,13 +33,20 @@ data_group.add_argument("--workset", type=pathlib.Path, required=True)
 data_group.add_argument("--training", type=pathlib.Path, required=True)
 data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
 
+loss_group = parser.add_mutually_exclusive_group(required=True)
+loss_group.add_argument(
+    "--mse", action="store_const", const="mse", dest="loss", help="mse loss"
+)
+loss_group.add_argument(
+    "--pois", action="store_const", const="pois", dest="loss", help="poisson loss"
+)
+
 model_group = parser.add_argument_group("model", description="Model parameters")
 model_group.add_argument("--layers", nargs="+", type=int, default=[128])
 model_group.add_argument(
     "--max_bottleneck", type=int, default=7, help="max bottleneck (log2)"
 )
 model_group.add_argument("--n2s", action="store_true", help="self-supervised training")
-model_group.add_argument("--pois", action="store_true", help="poisson loss")
 model_group.add_argument(
     "--learning_rate", type=float, default=0.1, help="learning rate"
 )
@@ -58,7 +65,7 @@ logger.addHandler(logging.StreamHandler())
 logger.info(f"torch version {torch.__version__}")
 
 output_file = args.output_dir / (
-    f"{'n2s_' if args.n2s else ''}{'pois' if args.pois else 'mse'}_{args.seed}.pickle"
+    f"{'n2s_' if args.n2s else ''}_{args.loss}_{args.seed}.pickle"
 )
 
 logger.info(f"writing output to {output_file}")
@@ -87,18 +94,19 @@ logger.info(f"testing bottlenecks {bottlenecks}")
 if max(bottlenecks) > max(args.layers):
     raise ValueError("Max bottleneck width is larger than your network layers")
 
-if args.pois:
+if args.loss == "mse":
+    exp_means = torch.from_numpy(expected_sqrt_umis ** 2).to(torch.float).to(device)
+
+    training_t = torch.sqrt
+    criterion_t = torch.sqrt
+else:
+    assert args.loss == "pois"
     exp_means = (
         torch.from_numpy(true_means).to(torch.float) * umis_X.sum(1, keepdim=True)
     ).to(device)
 
     training_t = torch.log1p
     criterion_t = lambda x: x
-else:
-    exp_means = torch.from_numpy(expected_sqrt_umis ** 2).to(torch.float).to(device)
-
-    training_t = torch.sqrt
-    criterion_t = torch.sqrt
 
 
 with open(args.training, "rb") as f:
@@ -156,10 +164,10 @@ with torch.cuda.device(device):
         weight_decay=0.0001,
     )
 
-    if args.pois:
-        loss_fn = nn.PoissonNLLLoss()
-    else:
+    if args.loss == "mse":
         loss_fn = nn.MSELoss()
+    elif args.loss == "pois":
+        loss_fn = nn.PoissonNLLLoss()
 
     train_dl, val_dl = n2s.data.split_dataset(
         umis_X,
