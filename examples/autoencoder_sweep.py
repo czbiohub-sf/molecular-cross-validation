@@ -65,7 +65,7 @@ logger.addHandler(logging.StreamHandler())
 logger.info(f"torch version {torch.__version__}")
 
 output_file = args.output_dir / (
-    f"{'n2s_' if args.n2s else ''}_{args.loss}_{args.seed}.pickle"
+    f"{'n2s_' if args.n2s else ''}{args.loss}_{args.seed}.pickle"
 )
 
 logger.info(f"writing output to {output_file}")
