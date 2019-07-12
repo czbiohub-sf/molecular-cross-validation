@@ -35,10 +35,10 @@ data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
 
 loss_group = parser.add_mutually_exclusive_group(required=True)
 loss_group.add_argument(
-    "--mse", action="store_const", const="mse", dest="loss", help="mse loss"
+    "--mse", action="store_const", const="mse", dest="loss", help="mean-squared error"
 )
 loss_group.add_argument(
-    "--pois", action="store_const", const="pois", dest="loss", help="poisson loss"
+    "--pois", action="store_const", const="pois", dest="loss", help="poisson likelihood"
 )
 
 model_group = parser.add_argument_group("model", description="Model parameters")
