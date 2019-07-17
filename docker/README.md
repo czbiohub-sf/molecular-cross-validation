@@ -5,6 +5,7 @@ This builds a Docker image that can be used to run all the code in this repo. Th
  * PyTorch
  * numpy
  * scanpy (including dependencies listed [here](https://scanpy.readthedocs.io/en/latest/installation.html))
+ * magic-impute
  * altair
  * pandas
  * scikit-learn
