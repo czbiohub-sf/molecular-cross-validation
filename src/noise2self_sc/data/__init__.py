@@ -6,7 +6,7 @@ import torch
 
 from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler
 
-from noise2self_sc.data.simulate import simulate_classes
+from noise2self_sc.data.simulate_dataset import simulate_classes
 
 
 def split_dataset(
