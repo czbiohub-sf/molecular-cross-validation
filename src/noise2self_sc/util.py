@@ -40,14 +40,15 @@ def poisson_expected_sqrt(X, n_samples):
     Y = np.zeros(X.shape)
     for i in range(n_samples):
         Y += np.sqrt(np.random.poisson(X))
-    return Y/n_samples
+    return Y / n_samples
 
-def poisson_log_lik(mu, k, per_gene = False, jitter=1e-6):
+
+def poisson_log_lik(mu, k, per_gene=False, jitter=1e-6):
     mu += jitter
     if per_gene:
-        return (mu - k*np.log(mu)).mean(axis = 0)
+        return (mu - k * np.log(mu)).mean(axis=0)
     else:
-        return (mu - k*np.log(mu)).mean()
+        return (mu - k * np.log(mu)).mean()
 
 
 def expected_sqrt(mean, samples=None):
@@ -56,26 +57,31 @@ def expected_sqrt(mean, samples=None):
     If samples = None, uses Taylor series centered at 0 or mean, as appropriate.
     
     If samples = int, uses that many samples for an empirical distribution."""
-    
+
     if samples is None:
-    
+
         truncated_taylor_around_0 = np.zeros(mean.shape)
-        nonzeros = (mean != 0)
+        nonzeros = mean != 0
         mean = mean + 1e-8
-        small_values = mean*(mean < 4)
+        small_values = mean * (mean < 4)
         for k in range(15):
-            truncated_taylor_around_0 += small_values**k/factorial(k) * np.sqrt(k)
+            truncated_taylor_around_0 += small_values ** k / factorial(k) * np.sqrt(k)
         truncated_taylor_around_0 *= np.exp(-small_values)
 
-        truncated_taylor_around_mean = np.sqrt(mean) - np.sqrt(mean)**(-0.5)/8 + np.sqrt(mean)**(-1.5)/16
+        truncated_taylor_around_mean = (
+            np.sqrt(mean) - np.sqrt(mean) ** (-0.5) / 8 + np.sqrt(mean) ** (-1.5) / 16
+        )
 
-        expectation = nonzeros*(truncated_taylor_around_0 * (mean < 4) + truncated_taylor_around_mean * (mean >= 4))
-        
+        expectation = nonzeros * (
+            truncated_taylor_around_0 * (mean < 4)
+            + truncated_taylor_around_mean * (mean >= 4)
+        )
+
     else:
         tot = np.zeros(mean.shape)
         for i in range(samples):
             tot += np.sqrt(np.random.poisson(mean))
-        expectation = tot/samples
+        expectation = tot / samples
     return expectation
 
 
@@ -85,12 +91,12 @@ def expected_log1p(mean, samples=None):
     If samples = None, uses Taylor series centered at 0 or mean, as appropriate.
     
     If samples = int, uses that many samples for an empirical distribution."""
-    
+
     if samples is None:
         raise NotImplementedError
     else:
         tot = np.zeros(mean.shape)
         for i in range(samples):
             tot += np.log1p(np.random.poisson(mean))
-        expectation = tot/samples
+        expectation = tot / samples
     return expectation
