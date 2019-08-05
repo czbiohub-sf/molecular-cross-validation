@@ -14,7 +14,7 @@ import torch.nn.functional as F
 
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
 
 from noise2self_sc.train.cosine_scheduler import CosineWithRestarts
 
@@ -55,7 +55,7 @@ class Noise2SelfDataLoader(DataLoader):
     downstream of this class.
     """
 
-    def __init__(self, dataset, **kwargs):
+    def __init__(self, dataset: TensorDataset, **kwargs):
         super(Noise2SelfDataLoader, self).__init__(dataset=dataset, **kwargs)
 
         if kwargs.get("pin_memory", False):
@@ -75,6 +75,41 @@ class Noise2SelfDataLoader(DataLoader):
             yield (x_data[indices], y_data[indices]) + tuple(
                 d[indices] for d in self.dataset.tensors[1:]
             )
+
+
+def split_dataset(
+    *xs: torch.Tensor,
+    batch_size: int,
+    indices: np.ndarray = None,
+    n_train: int = None,
+    noise2self: bool = False,
+):
+    if indices is None:
+        indices = np.random.permutation(xs[0].shape[0])
+
+    if n_train is None:
+        n_train = int(0.875 * xs[0].shape[0])
+
+    if noise2self:
+        ds = TensorDataset(xs[0] + xs[1], *xs[2:])
+        dataloader_cls = Noise2SelfDataLoader
+    else:
+        ds = TensorDataset(*xs)
+        dataloader_cls = DataLoader
+
+    training_dl = dataloader_cls(
+        dataset=ds,
+        batch_size=batch_size,
+        sampler=SubsetRandomSampler(indices[:n_train]),
+    )
+
+    validation_dl = dataloader_cls(
+        dataset=ds,
+        batch_size=batch_size,
+        sampler=SubsetRandomSampler(indices[n_train:]),
+    )
+
+    return training_dl, validation_dl
 
 
 def train_loop(

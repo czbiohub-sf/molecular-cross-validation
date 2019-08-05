@@ -15,6 +15,8 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler
 
 import noise2self_sc as n2s
+import noise2self_sc.data
+import noise2self_sc.train
 
 from noise2self_sc.train import Noise2SelfDataLoader
 from noise2self_sc.train.aggmo import AggMo
@@ -169,7 +171,7 @@ with torch.cuda.device(device):
     elif args.loss == "pois":
         loss_fn = nn.PoissonNLLLoss()
 
-    train_dl, val_dl = n2s.data.split_dataset(
+    train_dl, val_dl = noise2self_sc.train.split_dataset(
         umis_X,
         umis_Y,
         exp_means,

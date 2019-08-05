@@ -8,8 +8,6 @@ import numpy as np
 import scipy.sparse
 import scipy.stats
 
-import noise2self_sc as n2s
-
 import scanpy as sc
 
 import math
