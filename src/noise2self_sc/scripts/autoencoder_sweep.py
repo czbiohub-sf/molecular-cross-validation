@@ -15,7 +15,6 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler
 
 import noise2self_sc as n2s
-import noise2self_sc.data
 import noise2self_sc.train
 
 from noise2self_sc.train import Noise2SelfDataLoader
@@ -67,7 +66,7 @@ logger.addHandler(logging.StreamHandler())
 logger.info(f"torch version {torch.__version__}")
 
 output_file = args.output_dir / (
-    f"{'n2s_' if args.n2s else ''}{args.loss}_{args.seed}.pickle"
+    f"{'n2s_' if args.n2s else ''}{args.loss}_autoencoder_{args.seed}.pickle"
 )
 
 logger.info(f"writing output to {output_file}")
