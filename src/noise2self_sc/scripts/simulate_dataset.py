@@ -85,7 +85,7 @@ def expected_sqrt(mean):
     )
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--seed", type=int, required=True)
@@ -103,17 +103,8 @@ if __name__ == "__main__":
     seed = sum(map(ord, f"biohub_{args.seed}"))
 
     dataset_file = args.output_dir / f"dataset_{args.seed}.pickle"
-    training_index_file = args.output_dir / f"training_index_{args.seed}.pickle"
 
     np.random.seed(seed)
-
-    n_cells = args.n_cells_per_class * args.n_classes
-
-    example_indices = np.random.permutation(n_cells)
-    n_train = int(0.875 * n_cells)
-
-    with open(training_index_file, "wb") as out:
-        pickle.dump((example_indices, n_train), out)
 
     exp, class_labels, programs, lib_size, umis = simulate_classes(
         args.n_classes,
@@ -125,14 +116,15 @@ if __name__ == "__main__":
         library_kw=dict(loc=np.log(n_features * 0.5), scale=0.2),
     )
 
-    umis_X = np.random.binomial(umis, 0.5)  # molecular cross-validation
-    umis_Y = umis - umis_X
-
     true_exp = np.dot(exp, programs)  # true expression in log-normal space
-    p = np.exp(true_exp) / np.exp(true_exp).sum(1, keepdims=True)
-    exp_means = 0.5 * p * lib_size[:, None]  # expected mean of umis_X/umis_Y
+    true_means = np.exp(true_exp) / np.exp(true_exp).sum(1, keepdims=True)
+    exp_means = 0.5 * true_means * lib_size[:, None]  # expected mean of umis_X & umis_Y
 
-    expected_sqrt_umis = expected_sqrt(exp_means)
+    expected_sqrt_half_umis = expected_sqrt(exp_means)
 
     with open(dataset_file, "wb") as out:
-        pickle.dump((true_exp, expected_sqrt_umis, umis_X, umis_Y), out)
+        pickle.dump((true_means, expected_sqrt_half_umis, umis), out)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import logging
 import pathlib
 import pickle
 
@@ -53,12 +54,11 @@ def expected_sqrt(mean):
     )
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--seed", type=int, required=True)
-    parser.add_argument("--input_h5ad", type=pathlib.Path, default=None)
+    parser.add_argument("--input_h5ad", type=pathlib.Path, required=True)
     parser.add_argument("--output_dir", type=pathlib.Path, required=True)
 
     data_group = parser.add_argument_group("Parameters for dataset")
@@ -71,14 +71,17 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(logging.StreamHandler())
+
     seed = sum(map(ord, f"biohub_{args.seed}"))
 
     dataset_file = args.output_dir / f"dataset_{args.seed}.pickle"
-    training_index_file = args.output_dir / f"training_index_{args.seed}.pickle"
 
     np.random.seed(seed)
 
-    print("loading h5ad")
+    logger.info("loading h5ad")
     data = sc.read(args.input_h5ad)
 
     if args.min_counts:
@@ -99,7 +102,7 @@ if __name__ == "__main__":
 
         top_cells = cell_count >= sorted(cell_count)[-args.n_cells]
 
-        print(f"filtered to {args.n_cells} deepest cells")
+        logger.info(f"filtered to {args.n_cells} deepest cells")
         umis = umis[top_cells, :]
 
     # take most variable genes by poisson fit
@@ -109,32 +112,26 @@ if __name__ == "__main__":
 
         top_genes = exp_p < sorted(exp_p)[args.n_genes]
 
-        print(f"filtering to {args.n_genes} genes")
+        logger.info(f"filtering to {args.n_genes} genes")
         umis = umis[:, top_genes]
 
     # calculating expected means from deep data
     true_means = umis / umis.sum(1, keepdims=True)
 
     if args.subsample:
-        print(f"downsampling to {args.subsample} counts per cell")
+        logger.info(f"downsampling to {args.subsample} counts per cell")
         umis = sc.pp.downsample_counts(
             sc.AnnData(umis), args.subsample, replace=False, copy=True
         ).X.astype(int)
 
     umi_means = 0.5 * true_means * umis.sum(1, keepdims=True)
-    expected_sqrt_umis = expected_sqrt(umi_means)
+    expected_sqrt_half_umis = expected_sqrt(umi_means)
 
-    print(f"final umi matrix: {umis.shape}")
-
-    print("making n2s split")
-    umis_X = np.random.binomial(umis, 0.5)
-    umis_Y = umis - umis_X
+    logger.info(f"final umi matrix: {umis.shape}")
 
     with open(dataset_file, "wb") as out:
-        pickle.dump((true_means, expected_sqrt_umis, umis_X, umis_Y), out)
+        pickle.dump((true_means, expected_sqrt_half_umis, umis), out)
 
-    example_indices = np.random.permutation(umis.shape[0])
-    n_train = int(0.875 * umis.shape[0])
 
-    with open(training_index_file, "wb") as out:
-        pickle.dump((example_indices, n_train), out)
+if __name__ == "__main__":
+    main()
