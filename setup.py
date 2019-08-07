@@ -34,7 +34,7 @@ setuptools.setup(
         "torch",
         "magic-impute",
         "matplotlib",
-        "pandas",
+        "pandas<0.24",
         "scanpy",
         "scikit-learn",
         "simscity",

@@ -96,7 +96,7 @@ def main():
         umis = np.asarray(data.X.astype(int))
 
     # take top cells by umi count
-    if args.n_cells < umis.shape[0]:
+    if args.n_cells and args.n_cells < umis.shape[0]:
         # count umis per cell
         cell_count = umis.sum(1)
 
@@ -106,7 +106,7 @@ def main():
         umis = umis[top_cells, :]
 
     # take most variable genes by poisson fit
-    if args.n_genes < umis.shape[1]:
+    if args.n_genes and args.n_genes < umis.shape[1]:
         # compute deviation from poisson model
         exp_p = poisson_fit(umis)
 

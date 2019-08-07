@@ -87,7 +87,8 @@ def main():
     logger.info(f"torch version {torch.__version__}")
 
     output_file = args.output_dir / (
-        f"{'n2s_' if args.n2s else ''}{args.loss}_autoencoder_{args.run_seed}.pickle"
+        f"{'n2s_' if args.n2s else ''}"
+        f"{args.loss}_autoencoder_{args.data_seed}_{args.run_seed}.pickle"
     )
 
     logger.info(f"writing output to {output_file}")

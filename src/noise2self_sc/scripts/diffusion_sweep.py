@@ -77,7 +77,10 @@ def main():
     logger.addHandler(logging.StreamHandler())
 
     dataset_name = args.dataset.name.split("_")[0]
-    output_file = args.output_dir / f"{args.loss}_diffusion_{args.run_seed}.pickle"
+    output_file = (
+        args.output_dir
+        / f"{args.loss}_diffusion_{args.data_seed}_{args.run_seed}.pickle"
+    )
 
     logger.info(f"writing output to {output_file}")
 
