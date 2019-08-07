@@ -79,8 +79,6 @@ def main():
 
     dataset_file = args.output_dir / f"dataset_{args.seed}.pickle"
 
-    np.random.seed(seed)
-
     logger.info("loading h5ad")
     data = sc.read(args.input_h5ad)
 
@@ -121,7 +119,11 @@ def main():
     if args.subsample:
         logger.info(f"downsampling to {args.subsample} counts per cell")
         umis = sc.pp.downsample_counts(
-            sc.AnnData(umis), args.subsample, replace=False, copy=True
+            sc.AnnData(umis),
+            args.subsample,
+            replace=False,
+            copy=True,
+            random_state=seed,
         ).X.astype(int)
 
     umi_means = 0.5 * true_means * umis.sum(1, keepdims=True)
