@@ -13,7 +13,7 @@ from simscity import latent, drug, sequencing
 def simulate_classes(
     n_classes: int,
     n_latent: int,
-    n_cells: int,
+    n_cells_per_class: int,
     n_features: int,
     prog_kw: dict = None,
     class_kw: dict = None,
@@ -35,9 +35,7 @@ def simulate_classes(
         else library_kw.copy()
     )
 
-    assert n_cells // n_classes == n_cells / n_classes
-
-    n_cells_per_class = n_cells // n_classes
+    n_cells = n_classes * n_cells_per_class
 
     programs = latent.gen_programs(n_latent, n_features, **prog_kw)
 
@@ -109,11 +107,11 @@ def main():
     exp, class_labels, programs, lib_size, umis = simulate_classes(
         args.n_classes,
         args.n_latent,
-        args.n_cells,
+        args.n_cells_per_class,
         args.n_genes,
-        prog_kw=dict(scale=3.0 / np.sqrt(args.n_features), sparsity=1.0),
+        prog_kw=dict(scale=3.0 / np.sqrt(args.n_genes), sparsity=1.0),
         class_kw=dict(scale=3.0 / np.sqrt(args.n_latent), sparsity=1.0),
-        library_kw=dict(loc=np.log(n_features * 0.5), scale=0.2),
+        library_kw=dict(loc=np.log(args.n_genes* 0.5), scale=0.2),
     )
 
     true_exp = np.dot(exp, programs)  # true expression in log-normal space
