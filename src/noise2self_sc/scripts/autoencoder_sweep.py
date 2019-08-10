@@ -101,7 +101,7 @@ def main():
     torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
 
-    with open(args.workset, "rb") as f:
+    with open(args.dataset, "rb") as f:
         true_means, expected_sqrt_half_umis, umis = pickle.load(f)
 
     umis_X = np.random.RandomState(args.data_seed).binomial(umis, 0.5)

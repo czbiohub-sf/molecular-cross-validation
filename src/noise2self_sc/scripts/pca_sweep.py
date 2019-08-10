@@ -17,6 +17,12 @@ def main():
     run_group = parser.add_argument_group("run", description="Per-run parameters")
     run_group.add_argument("--data_seed", type=int, required=True)
     run_group.add_argument("--run_seed", type=int, required=True)
+    run_group.add_argument(
+        "--data_split", type=float, default=0.9, help="Split for self-supervision"
+    )
+    run_group.add_argument(
+        "--n_trials", type=int, default=10, help="Number of times to resample PCA"
+    )
 
     data_group = parser.add_argument_group(
         "data", description="Input and output parameters"
@@ -48,29 +54,50 @@ def main():
 
     np.random.seed(seed)
 
+    data_rng = np.random.RandomState(args.data_seed)
+
     with open(args.dataset, "rb") as f:
         true_means, expected_sqrt_half_umis, umis = pickle.load(f)
 
-    umis_X = np.random.RandomState(args.data_seed).binomial(umis, 0.5)
-    umis_Y = umis - umis_X
-
-    umis_X = np.sqrt(umis_X)
-    umis_Y = np.sqrt(umis_Y)
-
-    U, S, V = randomized_svd(umis_X, n_components=args.max_components)
+    re_losses = []
+    ss_losses = []
+    gt_losses = []
 
     k_range = np.arange(1, args.max_components + 1)
+    if true_means is not None:
+        true_means /= true_means.sum(1, keepdims=True)
 
-    re_loss = []
-    ss_loss = []
-    gt_loss = []
+    for i in range(args.n_trials):
+        umis_X = data_rng.binomial(umis, args.data_split)
+        umis_Y = umis - umis_X
 
-    for k in k_range:
-        pca_X = U[:, :k].dot(np.diag(S[:k])).dot(V[:k, :])
-        re_loss.append(mean_squared_error(umis_X, pca_X))
-        ss_loss.append(mean_squared_error(umis_Y, pca_X))
-        if expected_sqrt_half_umis is not None:
-            gt_loss.append(mean_squared_error(expected_sqrt_half_umis, pca_X))
+        umis_X /= umis_X.sum(1, keepdims=True)
+        umis_Y /= umis_Y.sum(1, keepdims=True)
+
+        U, S, V = randomized_svd(umis_X, n_components=args.max_components)
+
+        re_loss = []
+        ss_loss = []
+        gt_loss = []
+
+        for k in k_range:
+            pca_X = U[:, :k].dot(np.diag(S[:k])).dot(V[:k, :])
+            re_loss.append(mean_squared_error(umis_X, pca_X))
+            ss_loss.append(mean_squared_error(umis_Y, pca_X))
+            if true_means is not None:
+                gt_loss.append(mean_squared_error(true_means, pca_X))
+
+        re_losses.append(re_loss)
+        ss_losses.append(ss_loss)
+        if true_means is not None:
+            gt_losses.append(gt_loss)
+
+    re_loss = np.vstack(re_losses).mean(0)
+    ss_loss = np.vstack(ss_losses).mean(0)
+    if true_means is not None:
+        gt_loss = np.vstack(gt_losses).mean(0)
+    else:
+        gt_loss = None
 
     k_opt = k_range[np.argmin(ss_loss)]
     logger.info(f"Optimal number of PCs: {k_opt}")
@@ -83,7 +110,7 @@ def main():
         "param_range": k_range,
         "re_loss": re_loss,
         "ss_loss": ss_loss,
-        "gt_loss": gt_loss or None,
+        "gt_loss": gt_loss,
     }
 
     with open(output_file, "wb") as out:
