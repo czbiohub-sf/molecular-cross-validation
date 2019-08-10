@@ -11,6 +11,28 @@ from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils.extmath import randomized_svd
 
+from noise2self_sc.util import expected_sqrt, convert_expectations
+
+
+def compute_diff_op(umis: np.ndarray, n_components: int, n_neighbors: int):
+    # calculate diffusion operator
+    n_counts = np.median(umis.sum(axis=1))
+
+    x1_norm = np.sqrt(umis / umis.sum(axis=1, keepdims=True) * n_counts)
+
+    U, S, V = randomized_svd(x1_norm, n_components)
+
+    p = U.dot(np.diag(S))
+
+    nbrs = NearestNeighbors(n_neighbors=n_neighbors).fit(p)
+
+    diff_op = np.array(nbrs.kneighbors_graph(p, mode="connectivity").todense())
+    diff_op += diff_op.T
+    diff_op = diff_op / diff_op.sum(axis=1, keepdims=True)
+    diff_op = args.tr_prob * diff_op + (1 - args.tr_prob) * np.eye(diff_op.shape[0])
+
+    return diff_op
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -18,6 +40,12 @@ def main():
     run_group = parser.add_argument_group("run", description="Per-run parameters")
     run_group.add_argument("--data_seed", type=int, required=True)
     run_group.add_argument("--run_seed", type=int, required=True)
+    run_group.add_argument(
+        "--data_split", type=float, default=0.9, help="Split for self-supervision"
+    )
+    run_group.add_argument(
+        "--n_trials", type=int, default=10, help="Number of times to resample PCA"
+    )
 
     data_group = parser.add_argument_group(
         "data", description="Input and output parameters"
@@ -87,63 +115,51 @@ def main():
     seed = sum(map(ord, f"biohub_{args.run_seed}"))
 
     np.random.seed(seed)
+    data_rng = np.random.RandomState(args.data_seed)
 
     with open(args.dataset, "rb") as f:
-        true_means, expected_sqrt_half_umis, umis = pickle.load(f)
+        true_means, umis = pickle.load(f)
 
-    umis_X = np.random.RandomState(args.data_seed).binomial(umis, 0.5)
-    umis_Y = umis - umis_X
-
-    # calculate diffusion operator
-    n_counts = np.median(umis.sum(axis=1)) / 2
-
-    x1_norm = np.sqrt(umis_X / umis_X.sum(axis=1, keepdims=True) * n_counts)
-
-    U, S, V = randomized_svd(x1_norm, args.n_components)
-
-    Xp = U.dot(np.diag(S))
-
-    nbrs = NearestNeighbors(n_neighbors=args.n_neighbors).fit(Xp)
-
-    diff_op = np.array(nbrs.kneighbors_graph(Xp, mode="connectivity").todense())
-    diff_op += diff_op.T
-    diff_op /= diff_op.sum(axis=1, keepdims=True)
-
-    diff_op = args.tr_prob * diff_op + (1 - args.tr_prob) * np.eye(diff_op.shape[0])
+    re_losses = np.empty((args.n_trials, args.max_components), dtype=float)
+    ss_losses = np.empty((args.n_trials, args.max_components), dtype=float)
+    gt_losses = np.empty((args.n_trials, args.max_components), dtype=float)
 
     if args.loss == "mse":
-        loss = mean_squared_error
+        loss = lambda y_true, y_pred, a, b=None: mean_squared_error(
+            y_true, convert_expectations(y_pred, a, b)
+        )
         normalization = "sqrt"
-        exp_means = expected_sqrt_half_umis
-        umis_X = np.sqrt(umis_X)
-        umis_Y = np.sqrt(umis_Y)
+        exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
     else:
         assert args.loss == "pois"
-        loss = lambda y_true, y_pred: (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
+        loss = lambda y_true, y_pred, a=None, b=None: (
+            y_pred - y_true * np.log(y_pred + 1e-6)
+        ).mean()
         normalization = "none"
-        if true_means is not None:
-            exp_means = true_means * umis_X.sum(1, keepdims=True)
-        else:
-            exp_means = None
-        # umis_X and umis_Y are kept as counts
+        exp_means = true_means * umis.sum(1, keepdims=True)
 
-    diff_X = umis_X.copy().astype(np.float)
+    for i in range(args.n_trials):
+        umis_X = data_rng.binomial(umis, args.data_split)
+        umis_Y = umis - umis_X
 
-    # perform diffusion over the knn graph
-    t_range = np.arange(args.max_time)
+        diff_op = compute_diff_op(umis_X, args.n_components, args.n_neighbors)
 
-    re_loss = []
-    ss_loss = []
-    gt_loss = []
+        if args.loss == "mse":
+            umis_X = np.sqrt(umis_X)
+            umis_Y = np.sqrt(umis_Y)
 
-    for t in t_range:
-        re_loss.append(loss(umis_X, diff_X))
-        ss_loss.append(loss(umis_Y, diff_X))
-        if exp_means is not None:
-            gt_loss.append(loss(exp_means, diff_X))
-        diff_X = diff_op.dot(diff_X)
+        diff_X = umis_X.copy().astype(np.float)
 
-    t_opt = t_range[np.argmin(ss_loss)]
+        # perform diffusion over the knn graph
+        t_range = np.arange(args.max_time + 1)
+
+        for j, t in enumerate(t_range):
+            re_losses[i, j] = loss(umis_X, diff_X, 1.0, 1.0)
+            ss_losses[i, j] = loss(umis_Y, diff_X, args.data_split)
+            gt_losses[i, j] = loss(exp_means, diff_X, args.data_split, 1.0)
+            diff_X = diff_op.dot(diff_X)
+
+    t_opt = t_range[np.argmin(ss_losses.mean(0))]
     logger.info(f"Optimal diffusion time: {t_opt}")
 
     results = {
@@ -152,9 +168,9 @@ def main():
         "loss": args.loss,
         "normalization": normalization,
         "param_range": t_range,
-        "re_loss": re_loss,
-        "ss_loss": ss_loss,
-        "gt_loss": gt_loss or None,
+        "re_loss": re_losses,
+        "ss_loss": ss_losses,
+        "gt_loss": gt_losses,
     }
 
     with open(output_file, "wb") as out:

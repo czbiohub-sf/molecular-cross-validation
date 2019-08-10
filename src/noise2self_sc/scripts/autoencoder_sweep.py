@@ -12,12 +12,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler
-
 import noise2self_sc as n2s
 import noise2self_sc.train
 
-from noise2self_sc.train import Noise2SelfDataLoader
+from noise2self_sc.models.autoencoder import CountAutoencoder
 from noise2self_sc.train.aggmo import AggMo
 
 
@@ -178,7 +176,7 @@ def main():
         return b_results
 
     with torch.cuda.device(device):
-        model_factory = lambda bottleneck: n2s.models.CountAutoencoder(
+        model_factory = lambda bottleneck: CountAutoencoder(
             n_input=n_features,
             n_latent=bottleneck,
             layers=args.layers,

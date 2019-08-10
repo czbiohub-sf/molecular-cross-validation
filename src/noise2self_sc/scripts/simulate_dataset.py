@@ -111,17 +111,14 @@ def main():
         args.n_genes,
         prog_kw=dict(scale=3.0 / np.sqrt(args.n_genes), sparsity=1.0),
         class_kw=dict(scale=3.0 / np.sqrt(args.n_latent), sparsity=1.0),
-        library_kw=dict(loc=np.log(args.n_genes* 0.5), scale=0.2),
+        library_kw=dict(loc=np.log(args.n_genes * 0.5), scale=0.2),
     )
 
     true_exp = np.dot(exp, programs)  # true expression in log-normal space
     true_means = np.exp(true_exp) / np.exp(true_exp).sum(1, keepdims=True)
-    exp_means = 0.5 * true_means * lib_size[:, None]  # expected mean of umis_X & umis_Y
-
-    expected_sqrt_half_umis = expected_sqrt(exp_means)
 
     with open(dataset_file, "wb") as out:
-        pickle.dump((true_means, expected_sqrt_half_umis, umis), out)
+        pickle.dump((true_means, umis), out)
 
 
 if __name__ == "__main__":

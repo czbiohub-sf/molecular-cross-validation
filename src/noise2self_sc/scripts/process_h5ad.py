@@ -7,51 +7,10 @@ import pickle
 
 import numpy as np
 import scipy.sparse
-import scipy.stats
 
 import scanpy as sc
 
-import math
-
-
-def poisson_fit(gene_reads):
-    n_cells = gene_reads.shape[0]
-    pct = (gene_reads > 0).sum(0) / n_cells
-    exp = gene_reads.sum(0) / gene_reads.sum()
-    numis = gene_reads.sum(1)
-
-    prob_zero = np.exp(-np.dot(exp[:, None], numis[None, :]))
-    exp_pct_nz = (1 - prob_zero).mean(1)
-
-    var_pct_nz = (prob_zero * (1 - prob_zero)).mean(1) / n_cells
-    std_pct_nz = np.sqrt(var_pct_nz)
-
-    exp_p = np.ones_like(pct)
-    ix = std_pct_nz != 0
-    exp_p[ix] = scipy.stats.norm.cdf(pct[ix], loc=exp_pct_nz[ix], scale=std_pct_nz[ix])
-
-    return exp_p
-
-
-def expected_sqrt(mean):
-    """Return expected square root of a poisson distribution. Expects ndarray input.
-    Uses Taylor series centered at 0 or mean, as appropriate."""
-
-    truncated_taylor_around_0 = np.zeros(mean.shape)
-    nonzeros = mean != 0
-    mean = mean + 1e-8
-    for k in range(15):
-        truncated_taylor_around_0 += mean ** k / math.factorial(k) * np.sqrt(k)
-
-    truncated_taylor_around_0 *= np.exp(-mean)
-    truncated_taylor_around_mean = (
-        np.sqrt(mean) - np.sqrt(mean) ** (-0.5) / 8 + np.sqrt(mean) ** (-1.5) / 16
-    )
-
-    return nonzeros * (
-        truncated_taylor_around_0 * (mean < 4)
-        + truncated_taylor_around_mean * (mean >= 4)
-    )
+from noise2self_sc.util import poisson_fit
 
 
 def main():
@@ -130,13 +89,10 @@ def main():
             random_state=seed,
         ).X.astype(int)
 
-    umi_means = 0.5 * true_means * umis.sum(1, keepdims=True)
-    expected_sqrt_half_umis = expected_sqrt(umi_means)
-
     logger.info(f"final umi matrix: {umis.shape}")
 
     with open(dataset_file, "wb") as out:
-        pickle.dump((true_means, expected_sqrt_half_umis, umis), out)
+        pickle.dump((true_means, umis), out)
 
 
 if __name__ == "__main__":

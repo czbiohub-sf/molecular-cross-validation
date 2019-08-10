@@ -10,6 +10,8 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 from sklearn.utils.extmath import randomized_svd
 
+from noise2self_sc.util import expected_sqrt, convert_expectations
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -53,53 +55,41 @@ def main():
     seed = sum(map(ord, f"biohub_{args.run_seed}"))
 
     np.random.seed(seed)
-
     data_rng = np.random.RandomState(args.data_seed)
 
     with open(args.dataset, "rb") as f:
-        true_means, expected_sqrt_half_umis, umis = pickle.load(f)
+        true_means, umis = pickle.load(f)
 
-    re_losses = []
-    ss_losses = []
-    gt_losses = []
+    expected_sqrt_full_mean = expected_sqrt(true_means * umis.sum(1, keepdims=True))
+
+    re_losses = np.empty((args.n_trials, args.max_components), dtype=float)
+    ss_losses = np.empty((args.n_trials, args.max_components), dtype=float)
+    gt_losses = np.empty((args.n_trials, args.max_components), dtype=float)
 
     k_range = np.arange(1, args.max_components + 1)
-    if true_means is not None:
-        true_means = true_means / true_means.sum(1, keepdims=True)
 
     for i in range(args.n_trials):
         umis_X = data_rng.binomial(umis, args.data_split)
         umis_Y = umis - umis_X
 
-        umis_X = umis_X / umis_X.sum(1, keepdims=True)
-        umis_Y = umis_Y / umis_Y.sum(1, keepdims=True)
+        umis_X = np.sqrt(umis_X)
+        umis_Y = np.sqrt(umis_Y)
 
         U, S, V = randomized_svd(umis_X, n_components=args.max_components)
 
-        re_loss = []
-        ss_loss = []
-        gt_loss = []
-
-        for k in k_range:
+        for j, k in enumerate(k_range):
             pca_X = U[:, :k].dot(np.diag(S[:k])).dot(V[:k, :])
-            re_loss.append(mean_squared_error(umis_X, pca_X))
-            ss_loss.append(mean_squared_error(umis_Y, pca_X))
-            if true_means is not None:
-                gt_loss.append(mean_squared_error(true_means, pca_X))
 
-        re_losses.append(re_loss)
-        ss_losses.append(ss_loss)
-        if true_means is not None:
-            gt_losses.append(gt_loss)
+            re_losses[i, j] = mean_squared_error(umis_X, pca_X)
+            ss_losses[i, j] = mean_squared_error(
+                umis_Y, convert_expectations(pca_X, args.data_split)
+            )
+            gt_losses[i, j] = mean_squared_error(
+                expected_sqrt_full_mean,
+                convert_expectations(pca_X, args.data_split, 1.0),
+            )
 
-    re_loss = np.vstack(re_losses).mean(0)
-    ss_loss = np.vstack(ss_losses).mean(0)
-    if true_means is not None:
-        gt_loss = np.vstack(gt_losses).mean(0)
-    else:
-        gt_loss = None
-
-    k_opt = k_range[np.argmin(ss_loss)]
+    k_opt = k_range[np.argmin(ss_losses.mean(0))]
     logger.info(f"Optimal number of PCs: {k_opt}")
 
     results = {
@@ -108,9 +98,9 @@ def main():
         "loss": "mse",
         "normalization": "sqrt",
         "param_range": k_range,
-        "re_loss": re_loss,
-        "ss_loss": ss_loss,
-        "gt_loss": gt_loss,
+        "re_loss": re_losses,
+        "ss_loss": ss_losses,
+        "gt_loss": gt_losses,
     }
 
     with open(output_file, "wb") as out:
