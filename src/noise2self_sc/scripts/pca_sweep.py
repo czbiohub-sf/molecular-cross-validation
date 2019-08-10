@@ -65,14 +65,14 @@ def main():
 
     k_range = np.arange(1, args.max_components + 1)
     if true_means is not None:
-        true_means /= true_means.sum(1, keepdims=True)
+        true_means = true_means / true_means.sum(1, keepdims=True)
 
     for i in range(args.n_trials):
         umis_X = data_rng.binomial(umis, args.data_split)
         umis_Y = umis - umis_X
 
-        umis_X /= umis_X.sum(1, keepdims=True)
-        umis_Y /= umis_Y.sum(1, keepdims=True)
+        umis_X = umis_X / umis_X.sum(1, keepdims=True)
+        umis_Y = umis_Y / umis_Y.sum(1, keepdims=True)
 
         U, S, V = randomized_svd(umis_X, n_components=args.max_components)
 
