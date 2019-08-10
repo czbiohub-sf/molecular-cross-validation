@@ -146,7 +146,9 @@ def main():
         umis_X = data_rng.binomial(umis, args.data_split)
         umis_Y = umis - umis_X
 
-        diff_op = compute_diff_op(umis_X, args.n_components, args.n_neighbors)
+        diff_op = compute_diff_op(
+            umis_X, args.n_components, args.n_neighbors, args.tr_prob
+        )
 
         if args.loss == "mse":
             umis_X = np.sqrt(umis_X)
