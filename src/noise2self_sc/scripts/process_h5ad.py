@@ -67,6 +67,7 @@ def main():
     data_group.add_argument("--n_genes", type=int, help="Number of genes to select")
     data_group.add_argument("--min_counts", type=int, help="Minimum counts per cell")
     data_group.add_argument("--min_genes", type=int, help="Minimum genes per cell")
+    data_group.add_argument("--min_cells", type=int, help="Minimum cells per gene")
     data_group.add_argument("--subsample", type=int, help="Number of UMIs to subsample")
 
     args = parser.parse_args()
@@ -87,6 +88,9 @@ def main():
 
     if args.min_genes:
         sc.pp.filter_cells(data, min_genes=args.min_genes)
+
+    if args.min_cells:
+        sc.pp.filter_genes(data, min_cells=args.min_cells)
 
     if scipy.sparse.issparse(data.X):
         umis = np.asarray(data.X.astype(int).todense())
