@@ -120,9 +120,11 @@ def main():
     with open(args.dataset, "rb") as f:
         true_means, umis = pickle.load(f)
 
-    re_losses = np.empty((args.n_trials, args.max_components), dtype=float)
-    ss_losses = np.empty((args.n_trials, args.max_components), dtype=float)
-    gt_losses = np.empty((args.n_trials, args.max_components), dtype=float)
+    t_range = np.arange(args.max_time + 1)
+
+    re_losses = np.empty((args.n_trials, t_range.shape[0]), dtype=float)
+    ss_losses = np.empty_like(re_losses)
+    gt_losses = np.empty_like(re_losses)
 
     if args.loss == "mse":
         loss = lambda y_true, y_pred, a, b=None: mean_squared_error(
@@ -151,8 +153,6 @@ def main():
         diff_X = umis_X.copy().astype(np.float)
 
         # perform diffusion over the knn graph
-        t_range = np.arange(args.max_time + 1)
-
         for j, t in enumerate(t_range):
             re_losses[i, j] = loss(umis_X, diff_X, 1.0, 1.0)
             ss_losses[i, j] = loss(umis_Y, diff_X, args.data_split)

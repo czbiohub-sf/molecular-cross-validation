@@ -62,11 +62,11 @@ def main():
 
     expected_sqrt_full_mean = expected_sqrt(true_means * umis.sum(1, keepdims=True))
 
-    re_losses = np.empty((args.n_trials, args.max_components), dtype=float)
-    ss_losses = np.empty((args.n_trials, args.max_components), dtype=float)
-    gt_losses = np.empty((args.n_trials, args.max_components), dtype=float)
-
     k_range = np.arange(1, args.max_components + 1)
+
+    re_losses = np.empty((args.n_trials, k_range.shape[0]), dtype=float)
+    ss_losses = np.empty_like(re_losses)
+    gt_losses = np.empty_like(re_losses)
 
     for i in range(args.n_trials):
         umis_X = data_rng.binomial(umis, args.data_split)
