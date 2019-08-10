@@ -14,7 +14,9 @@ from sklearn.utils.extmath import randomized_svd
 from noise2self_sc.util import expected_sqrt, convert_expectations
 
 
-def compute_diff_op(umis: np.ndarray, n_components: int, n_neighbors: int):
+def compute_diff_op(
+    umis: np.ndarray, n_components: int, n_neighbors: int, tr_prob: float
+):
     # calculate diffusion operator
     n_counts = np.median(umis.sum(axis=1))
 
@@ -29,7 +31,7 @@ def compute_diff_op(umis: np.ndarray, n_components: int, n_neighbors: int):
     diff_op = np.array(nbrs.kneighbors_graph(p, mode="connectivity").todense())
     diff_op += diff_op.T
     diff_op = diff_op / diff_op.sum(axis=1, keepdims=True)
-    diff_op = args.tr_prob * diff_op + (1 - args.tr_prob) * np.eye(diff_op.shape[0])
+    diff_op = tr_prob * diff_op + (1 - tr_prob) * np.eye(diff_op.shape[0])
 
     return diff_op
 
