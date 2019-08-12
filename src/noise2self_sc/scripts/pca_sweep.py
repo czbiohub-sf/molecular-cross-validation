@@ -23,7 +23,7 @@ def main():
         "--data_split", type=float, default=0.9, help="Split for self-supervision"
     )
     run_group.add_argument(
-        "--n_trials", type=int, default=10, help="Number of times to resample PCA"
+        "--n_trials", type=int, default=10, help="Number of times to resample"
     )
 
     data_group = parser.add_argument_group(
@@ -60,7 +60,9 @@ def main():
     with open(args.dataset, "rb") as f:
         true_means, umis = pickle.load(f)
 
-    expected_sqrt_full_mean = expected_sqrt(true_means * umis.sum(1, keepdims=True))
+    expected_sqrt_full_mean = convert_expectations(
+        expected_sqrt(true_means * umis.sum(1, keepdims=True)), 1.0, args.data_split
+    )
 
     k_range = np.arange(1, args.max_components + 1)
 
@@ -73,7 +75,7 @@ def main():
         umis_Y = umis - umis_X
 
         umis_X = np.sqrt(umis_X)
-        umis_Y = np.sqrt(umis_Y)
+        umis_Y = convert_expectations(np.sqrt(umis_Y), 1 - args.data_split)
 
         U, S, V = randomized_svd(umis_X, n_components=args.max_components)
 
@@ -81,13 +83,8 @@ def main():
             pca_X = U[:, :k].dot(np.diag(S[:k])).dot(V[:k, :])
 
             re_losses[i, j] = mean_squared_error(umis_X, pca_X)
-            ss_losses[i, j] = mean_squared_error(
-                umis_Y, convert_expectations(pca_X, args.data_split)
-            )
-            gt_losses[i, j] = mean_squared_error(
-                expected_sqrt_full_mean,
-                convert_expectations(pca_X, args.data_split, 1.0),
-            )
+            ss_losses[i, j] = mean_squared_error(umis_Y, pca_X)
+            gt_losses[i, j] = mean_squared_error(expected_sqrt_full_mean, pca_X)
 
     k_opt = k_range[np.argmin(ss_losses.mean(0))]
     logger.info(f"Optimal number of PCs: {k_opt}")

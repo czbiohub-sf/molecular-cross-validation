@@ -46,7 +46,7 @@ def main():
         "--data_split", type=float, default=0.9, help="Split for self-supervision"
     )
     run_group.add_argument(
-        "--n_trials", type=int, default=10, help="Number of times to resample PCA"
+        "--n_trials", type=int, default=10, help="Number of times to resample"
     )
 
     data_group = parser.add_argument_group(
@@ -129,16 +129,14 @@ def main():
     gt_losses = np.empty_like(re_losses)
 
     if args.loss == "mse":
-        loss = lambda y_true, y_pred, a, b=None: mean_squared_error(
-            y_true, convert_expectations(y_pred, a, b)
-        )
+        loss = mean_squared_error
         normalization = "sqrt"
-        exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
+        exp_means = expected_sqrt(
+            true_means * args.data_split * umis.sum(1, keepdims=True)
+        )
     else:
         assert args.loss == "pois"
-        loss = lambda y_true, y_pred, a=None, b=None: (
-            y_pred - y_true * np.log(y_pred + 1e-6)
-        ).mean()
+        loss = lambda y_true, y_pred: (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
         normalization = "none"
         exp_means = true_means * umis.sum(1, keepdims=True)
 
@@ -152,15 +150,16 @@ def main():
 
         if args.loss == "mse":
             umis_X = np.sqrt(umis_X)
-            umis_Y = np.sqrt(umis_Y)
+            umis_Y = convert_expectations(np.sqrt(umis_Y), 1 - args.data_split)
 
         diff_X = umis_X.copy().astype(np.float)
 
         # perform diffusion over the knn graph
         for j, t in enumerate(t_range):
-            re_losses[i, j] = loss(umis_X, diff_X, 1.0, 1.0)
-            ss_losses[i, j] = loss(umis_Y, diff_X, args.data_split)
-            gt_losses[i, j] = loss(exp_means, diff_X, args.data_split, 1.0)
+            re_losses[i, j] = loss(umis_X, diff_X)
+            ss_losses[i, j] = loss(umis_Y, diff_X)
+            gt_losses[i, j] = loss(exp_means, diff_X)
+
             diff_X = diff_op.dot(diff_X)
 
     t_opt = t_range[np.argmin(ss_losses.mean(0))]

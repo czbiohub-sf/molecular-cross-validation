@@ -17,6 +17,7 @@ import noise2self_sc.train
 
 from noise2self_sc.models.autoencoder import CountAutoencoder
 from noise2self_sc.train.aggmo import AggMo
+from noise2self_sc.util import expected_sqrt, convert_expectations
 
 
 def main():
@@ -25,6 +26,9 @@ def main():
     run_group = parser.add_argument_group("run", description="Per-run parameters")
     run_group.add_argument("--data_seed", type=int, required=True)
     run_group.add_argument("--run_seed", type=int, required=True)
+    run_group.add_argument(
+        "--data_split", type=float, default=0.9, help="Split for self-supervision"
+    )
     run_group.add_argument("--gpu", type=int, required=True)
 
     data_group = parser.add_argument_group(
@@ -51,9 +55,6 @@ def main():
         help="poisson likelihood",
     )
 
-    model_group.add_argument(
-        "--n2s", action="store_true", help="self-supervised training"
-    )
     model_group.add_argument(
         "--layers",
         nargs="+",
@@ -85,7 +86,6 @@ def main():
     logger.info(f"torch version {torch.__version__}")
 
     output_file = args.output_dir / (
-        f"{'n2s_' if args.n2s else ''}"
         f"{args.loss}_autoencoder_{args.data_seed}_{args.run_seed}.pickle"
     )
 
@@ -93,25 +93,18 @@ def main():
 
     seed = sum(map(ord, f"biohub_{args.run_seed}"))
 
-    device = torch.device(f"cuda:{args.gpu}")
     np.random.seed(seed)
+    data_rng = np.random.RandomState(args.data_seed)
+
+    device = torch.device(f"cuda:{args.gpu}")
 
     torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
 
     with open(args.dataset, "rb") as f:
-        true_means, expected_sqrt_half_umis, umis = pickle.load(f)
+        true_means, umis = pickle.load(f)
 
-    umis_X = np.random.RandomState(args.data_seed).binomial(umis, 0.5)
-    umis_Y = umis - umis_X
-
-    sample_indices = np.random.RandomState(args.data_seed).permutation(umis.shape[0])
-    n_train = int(0.875 * umis.shape[0])
-
-    umis_X = torch.from_numpy(umis_X).to(torch.float)
-    umis_Y = torch.from_numpy(umis_Y).to(torch.float)
-
-    n_features = umis_X.shape[-1]
+    n_features = umis.shape[-1]
     bottlenecks = [2 ** i for i in range(args.max_bottleneck + 1)]
     bottlenecks.extend(3 * b // 2 for b in bottlenecks[1:-1])
     bottlenecks.sort()
@@ -122,44 +115,78 @@ def main():
         raise ValueError("Max bottleneck width is larger than your network layers")
 
     if args.loss == "mse":
-        exp_means = (
-            torch.from_numpy(expected_sqrt_half_umis ** 2).to(torch.float).to(device)
+        exp_means = expected_sqrt(
+            true_means * args.data_split * umis.sum(1, keepdims=True)
         )
+        exp_means = torch.from_numpy(exp_means).to(torch.float).to(device)
 
-        training_t = torch.sqrt
-        criterion_t = torch.sqrt
+        training_t = None
+        criterion_t = None
+        loss_fn = nn.MSELoss()
     else:
         assert args.loss == "pois"
         exp_means = (
-            torch.from_numpy(true_means).to(torch.float) * umis_X.sum(1, keepdim=True)
+            torch.from_numpy(true_means * umis.sum(1, keepdim=True)).to(torch.float)
         ).to(device)
 
         training_t = torch.log1p
-        criterion_t = lambda x: x
+        criterion_t = None
+        loss_fn = nn.PoissonNLLLoss()
 
-    batch_size = len(sample_indices)
+    model_factory = lambda bottleneck: CountAutoencoder(
+        n_input=n_features,
+        n_latent=bottleneck,
+        layers=args.layers,
+        use_cuda=True,
+        dropout_rate=args.dropout,
+    )
 
-    def test_bottlenecks(bs, m_factory, opt_factory, criterion, train_data, val_data):
-        b_results = dict()
-        scheduler_kw = {
-            "t_max": 128,
-            "eta_min": args.learning_rate / 100.0,
-            "factor": 1.0,
-        }
+    optimizer_factory = lambda m: AggMo(
+        m.parameters(),
+        lr=args.learning_rate,
+        betas=[0.0, 0.9, 0.99],
+        weight_decay=0.0001,
+    )
+
+    b_results = dict()
+    scheduler_kw = {"t_max": 128, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
+
+    with torch.cuda.device(device):
+        umis_X = data_rng.binomial(umis, args.data_split)
+        umis_Y = umis - umis_X
+
+        if args.loss == "mse":
+            umis_X = np.sqrt(umis_X)
+            umis_Y = convert_expectations(np.sqrt(umis_Y), 1 - args.data_split)
+
+        umis_X = torch.from_numpy(umis_X).to(torch.float)
+        umis_Y = torch.from_numpy(umis_Y).to(torch.float)
+
+        sample_indices = data_rng.permutation(umis.shape[0])
+        n_train = int(0.875 * umis.shape[0])
+
+        train_dl, val_dl = noise2self_sc.train.split_dataset(
+            umis_X,
+            umis_Y,
+            exp_means,
+            batch_size=len(sample_indices),
+            indices=sample_indices,
+            n_train=n_train,
+        )
 
         t0 = time.time()
 
-        for b in bs:
+        for b in bottlenecks:
             logger.info(f"testing bottleneck width {b}")
-            model = m_factory(b)
-            optimizer = opt_factory(model)
+            model = model_factory(b)
+            optimizer = optimizer_factory(model)
 
             b_results[b] = n2s.train.train_until_plateau(
                 model,
-                criterion,
+                loss_fn,
                 optimizer,
-                train_data,
-                val_data,
+                train_dl,
+                val_dl,
                 training_t=training_t,
                 training_i=0,
                 criterion_t=criterion_t,
@@ -172,43 +199,6 @@ def main():
             )
 
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
-
-        return b_results
-
-    with torch.cuda.device(device):
-        model_factory = lambda bottleneck: CountAutoencoder(
-            n_input=n_features,
-            n_latent=bottleneck,
-            layers=args.layers,
-            use_cuda=True,
-            dropout_rate=args.dropout,
-        )
-
-        optimizer_factory = lambda model: AggMo(
-            model.parameters(),
-            lr=args.learning_rate,
-            betas=[0.0, 0.9, 0.99],
-            weight_decay=0.0001,
-        )
-
-        if args.loss == "mse":
-            loss_fn = nn.MSELoss()
-        elif args.loss == "pois":
-            loss_fn = nn.PoissonNLLLoss()
-
-        train_dl, val_dl = noise2self_sc.train.split_dataset(
-            umis_X,
-            umis_Y,
-            exp_means,
-            batch_size=batch_size,
-            indices=sample_indices,
-            n_train=n_train,
-            noise2self=args.n2s,
-        )
-
-        results = test_bottlenecks(
-            bottlenecks, model_factory, optimizer_factory, loss_fn, train_dl, val_dl
-        )
 
     with open(output_file, "wb") as out:
         pickle.dump(results, out)
