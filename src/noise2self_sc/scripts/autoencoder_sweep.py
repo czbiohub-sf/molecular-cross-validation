@@ -148,7 +148,7 @@ def main():
         weight_decay=0.0001,
     )
 
-    b_results = dict()
+    results = dict()
     scheduler_kw = {"t_max": 128, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
 
     with torch.cuda.device(device):
@@ -181,7 +181,7 @@ def main():
             model = model_factory(b)
             optimizer = optimizer_factory(model)
 
-            b_results[b] = n2s.train.train_until_plateau(
+            results[b] = n2s.train.train_until_plateau(
                 model,
                 loss_fn,
                 optimizer,
