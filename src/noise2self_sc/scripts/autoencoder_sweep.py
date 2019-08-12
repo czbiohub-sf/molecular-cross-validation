@@ -126,7 +126,7 @@ def main():
     else:
         assert args.loss == "pois"
         exp_means = (
-            torch.from_numpy(true_means * umis.sum(1, keepdim=True)).to(torch.float)
+            torch.from_numpy(true_means * umis.sum(1, keepdims=True)).to(torch.float)
         ).to(device)
 
         training_t = torch.log1p
