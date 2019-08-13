@@ -135,12 +135,12 @@ def main():
 
     if args.loss == "mse":
         exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
-        exp_means = torch.from_numpy(exp_means).to(torch.float)
+        exp_means = torch.from_numpy(exp_means)
 
         exp_split_means = expected_sqrt(
             true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
         )
-        exp_split_means = torch.from_numpy(exp_split_means).to(torch.float)
+        exp_split_means = torch.from_numpy(exp_split_means)
 
         normalization = "sqrt"
         loss_fn = nn.MSELoss()
@@ -149,7 +149,7 @@ def main():
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepsdims=True)
-        exp_means = torch.from_numpy(exp_means).to(torch.float)
+        exp_means = torch.from_numpy(exp_means)
         exp_split_means = exp_means
 
         normalization = "log1p"
@@ -186,7 +186,7 @@ def main():
             umis_Y = np.sqrt(umis_Y)
 
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
-        umis_Y = torch.from_numpy(umis_Y).to(torch.float)
+        umis_Y = torch.from_numpy(umis_Y)
 
         sample_indices = data_rng.permutation(umis.shape[0])
         n_train = int(0.875 * umis.shape[0])
