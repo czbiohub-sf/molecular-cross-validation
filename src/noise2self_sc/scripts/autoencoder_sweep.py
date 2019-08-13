@@ -264,8 +264,8 @@ def main():
         "ss_loss": ss_losses,
         "gt0_loss": gt0_losses,
         "gt1_loss": gt1_losses,
-        "train_losses": np.vstack(train_losses),
-        "val_losses": np.vstack(val_losses),
+        "train_losses": train_losses,
+        "val_losses": val_losses,
     }
 
     with open(output_file, "wb") as out:
