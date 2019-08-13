@@ -24,12 +24,24 @@ from noise2self_sc.util import expected_sqrt, convert_expectations
 
 class AdjustedMSELoss(object):
     def __init__(self, a: float):
+        assert 0.0 < a <= 1.0
         self.a = a
 
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor):
-        y_pred = convert_expectations(y_pred.detach().cpu().numpy(), self.a, 1 - self.a)
+    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
+        y_pred = y_pred.detach().cpu()
 
-        return func.mse_loss(torch.from_numpy(y_pred), y_true)
+        if self.a < 1.0:
+            y_pred = torch.from_numpy(
+                convert_expectations(y_pred.numpy(), self.a, 1 - self.a)
+            ).to(torch.float)
+
+        return func.mse_loss(y_pred, y_true).data.item()
+
+
+def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
+    y_pred = y_pred.detach().cpu()
+
+    return func.poisson_nll_loss(y_pred, y_true).data.item()
 
 
 def main():
@@ -135,27 +147,29 @@ def main():
 
     if args.loss == "mse":
         exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
-        exp_means = torch.from_numpy(exp_means)
+        exp_means = torch.from_numpy(exp_means).to(torch.float)
 
         exp_split_means = expected_sqrt(
             true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
         )
-        exp_split_means = torch.from_numpy(exp_split_means)
+        exp_split_means = torch.from_numpy(exp_split_means).to(torch.float)
 
         normalization = "sqrt"
         loss_fn = nn.MSELoss()
         input_t = torch.nn.Identity()
-        eval_fn = AdjustedMSELoss(args.data_split)
+        eval0_fn = AdjustedMSELoss(1.0)
+        eval1_fn = AdjustedMSELoss(args.data_split)
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepsdims=True)
-        exp_means = torch.from_numpy(exp_means)
+        exp_means = torch.from_numpy(exp_means).to(torch.float)
         exp_split_means = exp_means
 
         normalization = "log1p"
         loss_fn = nn.PoissonNLLLoss()
         input_t = torch.log1p
-        eval_fn = nn.PoissonNLLLoss()
+        eval0_fn = poisson_nll_loss_cpu
+        eval1_fn = poisson_nll_loss_cpu
 
     model_factory = lambda bottleneck: CountAutoencoder(
         n_input=n_features,
@@ -186,7 +200,7 @@ def main():
             umis_Y = np.sqrt(umis_Y)
 
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
-        umis_Y = torch.from_numpy(umis_Y)
+        umis_Y = torch.from_numpy(umis_Y).to(torch.float)
 
         sample_indices = data_rng.permutation(umis.shape[0])
         n_train = int(0.875 * umis.shape[0])
@@ -230,14 +244,14 @@ def main():
 
             re_losses[j] = train_loss[-1]
             ss_losses[j] = n2s.train.evaluate_epoch(
-                model, eval_fn, train_dl, input_t, eval_i=1
+                model, eval1_fn, train_dl, input_t, eval_i=1
             )
 
             gt0_losses[j] = n2s.train.evaluate_epoch(
-                model, loss_fn, gt_dl, input_t, eval_i=1
+                model, eval0_fn, gt_dl, input_t, eval_i=1
             )
             gt1_losses[j] = n2s.train.evaluate_epoch(
-                model, eval_fn, train_dl, input_t, eval_i=2
+                model, eval1_fn, train_dl, input_t, eval_i=2
             )
 
     results = {
