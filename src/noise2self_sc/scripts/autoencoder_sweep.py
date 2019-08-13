@@ -11,6 +11,7 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as func
 import torch.utils.data
 
 import noise2self_sc as n2s
@@ -28,7 +29,7 @@ class AdjustedMSELoss(object):
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor):
         y_pred = convert_expectations(y_pred.detach().cpu().numpy(), self.a, 1 - self.a)
 
-        return F.mse_loss(y_true, torch.from_numpy(y_pred))
+        return func.mse_loss(y_true, torch.from_numpy(y_pred))
 
 
 def main():
