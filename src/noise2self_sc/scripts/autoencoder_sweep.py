@@ -184,8 +184,8 @@ def main():
             umis_X = np.sqrt(umis_X)
             umis_Y = np.sqrt(umis_Y)
 
-        umis_X = torch.from_numpy(umis_X).to(torch.float)
-        umis_Y = torch.from_numpy(umis_Y).to(torch.float)
+        umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
+        umis_Y = torch.from_numpy(umis_Y).to(torch.float).to(device)
 
         sample_indices = data_rng.permutation(umis.shape[0])
         n_train = int(0.875 * umis.shape[0])
