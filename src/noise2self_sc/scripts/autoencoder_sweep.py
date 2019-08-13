@@ -27,7 +27,7 @@ class AdjustedMSELoss(object):
         assert 0.0 < a <= 1.0
         self.a = a
 
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
+    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         y_pred = y_pred.detach().cpu()
 
         if self.a < 1.0:
@@ -35,13 +35,13 @@ class AdjustedMSELoss(object):
                 convert_expectations(y_pred.numpy(), self.a, 1 - self.a)
             ).to(torch.float)
 
-        return func.mse_loss(y_pred, y_true).data.item()
+        return func.mse_loss(y_pred, y_true)
 
 
-def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> float:
+def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     y_pred = y_pred.detach().cpu()
 
-    return func.poisson_nll_loss(y_pred, y_true).data.item()
+    return func.poisson_nll_loss(y_pred, y_true)
 
 
 def main():
