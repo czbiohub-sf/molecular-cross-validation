@@ -29,7 +29,7 @@ class AdjustedMSELoss(object):
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor):
         y_pred = convert_expectations(y_pred.detach().cpu().numpy(), self.a, 1 - self.a)
 
-        return func.mse_loss(y_true, torch.from_numpy(y_pred))
+        return func.mse_loss(torch.from_numpy(y_pred), y_true)
 
 
 def main():
@@ -186,7 +186,7 @@ def main():
             umis_Y = np.sqrt(umis_Y)
 
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
-        umis_Y = torch.from_numpy(umis_Y).to(torch.float).to(device)
+        umis_Y = torch.from_numpy(umis_Y).to(torch.float)
 
         sample_indices = data_rng.permutation(umis.shape[0])
         n_train = int(0.875 * umis.shape[0])
