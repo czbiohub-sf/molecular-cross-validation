@@ -60,22 +60,32 @@ def main():
     with open(args.dataset, "rb") as f:
         true_means, umis = pickle.load(f)
 
-    expected_sqrt_full_mean = convert_expectations(
-        expected_sqrt(true_means * umis.sum(1, keepdims=True)), 1.0, args.data_split
+    exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
+    exp_split_means = expected_sqrt(
+        true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
     )
 
     k_range = np.arange(1, args.max_components + 1)
 
     re_losses = np.empty((args.n_trials, k_range.shape[0]), dtype=float)
     ss_losses = np.empty_like(re_losses)
-    gt_losses = np.empty_like(re_losses)
+    gt0_losses = np.empty(k_range.shape[0], dtype=float)
+    gt1_losses = np.empty_like(re_losses)
 
+    # calculate gt loss for sweep using full data
+    U, S, V = randomized_svd(np.sqrt(umis), n_components=args.max_components)
+
+    for j, k in enumerate(k_range):
+        pca_X = U[:, :k].dot(np.diag(S[:k])).dot(V[:k, :])
+        gt0_losses[j] = mean_squared_error(exp_means, pca_X)
+
+    # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
         umis_X = data_rng.binomial(umis, args.data_split)
         umis_Y = umis - umis_X
 
         umis_X = np.sqrt(umis_X)
-        umis_Y = convert_expectations(np.sqrt(umis_Y), 1 - args.data_split)
+        umis_Y = np.sqrt(umis_Y)
 
         U, S, V = randomized_svd(umis_X, n_components=args.max_components)
 
@@ -83,11 +93,12 @@ def main():
             pca_X = U[:, :k].dot(np.diag(S[:k])).dot(V[:k, :])
 
             re_losses[i, j] = mean_squared_error(umis_X, pca_X)
-            ss_losses[i, j] = mean_squared_error(umis_Y, pca_X)
-            gt_losses[i, j] = mean_squared_error(expected_sqrt_full_mean, pca_X)
-
-    k_opt = k_range[np.argmin(ss_losses.mean(0))]
-    logger.info(f"Optimal number of PCs: {k_opt}")
+            ss_losses[i, j] = mean_squared_error(
+                umis_Y, convert_expectations(pca_X, args.data_split)
+            )
+            gt1_losses[i, j] = mean_squared_error(
+                exp_split_means, convert_expectations(pca_X, args.data_split)
+            )
 
     results = {
         "dataset": dataset_name,
@@ -97,7 +108,8 @@ def main():
         "param_range": k_range,
         "re_loss": re_losses,
         "ss_loss": ss_losses,
-        "gt_loss": gt_losses,
+        "gt0_loss": gt0_losses,
+        "gt1_loss": gt1_losses,
     }
 
     with open(output_file, "wb") as out:

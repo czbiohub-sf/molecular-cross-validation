@@ -18,71 +18,11 @@ from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
 
 from noise2self_sc.train.cosine_scheduler import CosineWithRestarts
 
-
 Transform = Callable[[torch.Tensor], torch.Tensor]
 
 
-class NegativeBinomialNLLLoss(nn.Module):
-    """Negative log likelihood loss with Negative Binomial distribution of target.
-
-    :param eps: value to use for numerical stability of total_count
-    """
-
-    def __init__(self, eps: float = 1e-8):
-        super(NegativeBinomialNLLLoss, self).__init__()
-        self.eps = eps
-
-    def forward(self, params: Tuple[torch.Tensor, torch.Tensor], target: torch.Tensor):
-        """Calculate the NB loss
-
-        :param params: log of the rate parameters and logit values for success rate
-        :param target: target values for computing log_prob
-        :return: mean of negative log likelihood
-        """
-        log_r, logits = nb_params
-
-        d = torch.distributions.NegativeBinomial(
-            torch.exp(log_r) + self.eps, logits=logits, validate_args=True
-        )
-
-        return -torch.mean(d.log_prob(target))
-
-
-class Noise2SelfDataLoader(DataLoader):
-    """A version of the standard DataLoader that generates a new noise2self split every
-    time it is iterated on. The dataset passed in should be an instance of TensorDataset
-    and contain one tensor of UMI counts. Any transformation(s) of the data must be done
-    downstream of this class.
-    """
-
-    def __init__(self, dataset: TensorDataset, **kwargs):
-        super(Noise2SelfDataLoader, self).__init__(dataset=dataset, **kwargs)
-
-        if kwargs.get("pin_memory", False):
-            self.b_dist = torch.distributions.Binomial(
-                self.dataset.tensors[0].cuda(), probs=0.5
-            )
-        else:
-            self.b_dist = torch.distributions.Binomial(
-                self.dataset.tensors[0], probs=0.5
-            )
-
-    def __iter__(self):
-        x_data = self.b_dist.sample()
-        y_data = self.b_dist.total_count - x_data
-
-        for indices in iter(self.batch_sampler):
-            yield (x_data[indices], y_data[indices]) + tuple(
-                d[indices] for d in self.dataset.tensors[1:]
-            )
-
-
 def split_dataset(
-    *xs: torch.Tensor,
-    batch_size: int,
-    indices: np.ndarray = None,
-    n_train: int = None,
-    noise2self: bool = False,
+    *xs: torch.Tensor, batch_size: int, indices: np.ndarray = None, n_train: int = None
 ):
     if indices is None:
         indices = np.random.permutation(xs[0].shape[0])
@@ -90,20 +30,15 @@ def split_dataset(
     if n_train is None:
         n_train = int(0.875 * xs[0].shape[0])
 
-    if noise2self:
-        ds = TensorDataset(xs[0] + xs[1], *xs[2:])
-        dataloader_cls = Noise2SelfDataLoader
-    else:
-        ds = TensorDataset(*xs)
-        dataloader_cls = DataLoader
+    ds = TensorDataset(*xs)
 
-    training_dl = dataloader_cls(
+    training_dl = DataLoader(
         dataset=ds,
         batch_size=batch_size,
         sampler=SubsetRandomSampler(indices[:n_train]),
     )
 
-    validation_dl = dataloader_cls(
+    validation_dl = DataLoader(
         dataset=ds,
         batch_size=batch_size,
         sampler=SubsetRandomSampler(indices[n_train:]),
@@ -112,16 +47,12 @@ def split_dataset(
     return training_dl, validation_dl
 
 
-def train_loop(
+def train_epoch(
     model: nn.Module,
     criterion: nn.Module,
     optim: Optimizer,
     data_loader: DataLoader,
-    training_t: Transform,
-    training_i: int,
-    criterion_t: Transform,
-    criterion_i: int,
-    use_cuda: bool,
+    input_t: Transform,
     clip_norm: float = None,
 ):
     """Iterate through training data, compute losses and take gradient steps
@@ -132,22 +63,15 @@ def train_loop(
     :param data_loader: training dataset. Should produce a tuple of tensors: the first
                         is used as input and the last is the target. If the tuple has
                         only one element then it's used for both
-    :param training_t: Transformation to the data when training the model
-    :param training_i: index of the data (from DataLoader tuple) when training the model
-    :param criterion_t: Transformation to the data when scoring the output
-    :param criterion_i: index of the data (from DataLoader tuple) to score against
-    :param use_cuda: whether to use the GPU
+    :param input_t: Transformation to apply to the input
     :param clip_norm: clip gradient norm to a given absolute value
     :return: total loss for the epoch, averaged over the number of batches
     """
     total_epoch_loss = 0.0
 
     for data in data_loader:
-        if use_cuda:
-            data = tuple(x.cuda() for x in data)
-
-        y = model(training_t(data[training_i]))
-        loss = criterion(y, criterion_t(data[criterion_i]))
+        y = model(input_t(data[0]))
+        loss = criterion(y, data[0])
 
         total_epoch_loss += loss.data.item()
 
@@ -160,15 +84,12 @@ def train_loop(
     return total_epoch_loss / len(data_loader)
 
 
-def validate_loop(
+def evaluate_epoch(
     model: nn.Module,
     criterion: nn.Module,
     data_loader: DataLoader,
-    training_t: Transform,
-    training_i: int,
-    criterion_t: Transform,
-    criterion_i: int,
-    use_cuda: bool,
+    input_t: Transform,
+    eval_i: int,
 ):
     """Iterate through test data and compute losses
 
@@ -177,21 +98,15 @@ def validate_loop(
     :param data_loader: validation dataset. Should produce a tuple of tensors: the first
                         is used as input and the last is the target. If the tuple has
                         only one element then it's used for both
-    :param training_t: Transformation to the data when training the model
-    :param training_i: index of the data (from DataLoader tuple) when training the model
-    :param criterion_t: Transformation to the data when scoring the output
-    :param criterion_i: index of the data (from DataLoader tuple) to score against
-    :param use_cuda: whether to use the GPU
+    :param input_t: Transformation to apply to the input
+    :param eval_i: Index into the DataLoader tuple for evaluation
     :return: total loss for the epoch, averaged over the number of batches
     """
     total_epoch_loss = 0.0
 
     for data in data_loader:
-        if use_cuda:
-            data = tuple(x.cuda() for x in data)
-
-        y = model(training_t(data[training_i]))
-        loss = criterion(y, criterion_t(data[criterion_i]))
+        y = model(input_t(data[0]))
+        loss = criterion(y, data[eval_i])
 
         total_epoch_loss += loss.data.item()
 
@@ -200,57 +115,40 @@ def validate_loop(
 
 def train_until_plateau(
     model: nn.Module,
-    criterion: nn.Module,
+    training_loss: nn.Module,
     optim: Optimizer,
     training_data: DataLoader,
     validation_data: DataLoader,
-    training_t: Transform = None,
-    training_i: int = 0,
-    criterion_t: Transform = None,
-    criterion_i: int = 1,
-    evaluation_i: Sequence[int] = (1, 2),
+    input_t: Transform,
     min_cycles: int = 3,
     threshold: float = 0.01,
     scheduler_kw: dict = None,
-    use_cuda: bool = False,
     verbose: bool = False,
 ) -> Tuple[list, list]:
     """Train a model with cosine scheduling until validation loss stabilizes. This
     function uses CosineWithRestarts to train until the learning rate stops improving.
 
     :param model: torch Module that can take input data and return the prediction
-    :param criterion: A loss function
+    :param training_loss: The loss function used for training the model
     :param optim: torch Optimizer (will zero the gradient after testing)
     :param training_data: Training dataset. Should produce tuples of Tensors, all but
                           the last are considered to be input and the last is the target
     :param validation_data: Validation dataset in the same format
-    :param training_t: Transformation to the data when training the model
-    :param training_i: Which of the tensors to use as the training target
-    :param criterion_t: Transformation to the data when scoring the output
-    :param criterion_i: Which of the tensors to use for scoring
-    :param evaluation_i: Which of the tensors to use for evaluation (can be multiple)
+    :param input_t: Function to apply to the input
     :param min_cycles: Minimum number of cycles to run before checking for convergence
     :param threshold: Tolerance threshold for calling convergence
     :param scheduler_kw: dictionary of keyword arguments for CosineWithRestarts
-    :param use_cuda: Whether to use the GPU
     :param verbose: Print training progress to stdout
     :return: Lists of training and validation loss and correlation values
     """
 
     assert 0.0 <= threshold < 1.0
 
-    if training_t is None:
-        training_t = lambda x: x
-    if criterion_t is None:
-        criterion_t = lambda x: x
-
     if scheduler_kw is None:
         scheduler_kw = dict()
 
     train_loss = []
     val_loss = []
-    train_eval = defaultdict(list)
-    val_eval = defaultdict(list)
 
     scheduler = CosineWithRestarts(optim, **scheduler_kw)
     best = np.inf
@@ -263,60 +161,26 @@ def train_until_plateau(
         model.train()
 
         train_loss.append(
-            train_loop(
+            train_epoch(
                 model=model,
-                criterion=criterion,
+                criterion=training_loss,
                 optim=optim,
                 data_loader=training_data,
-                training_t=training_t,
-                training_i=training_i,
-                criterion_t=criterion_t,
-                criterion_i=criterion_i,
+                input_t=input_t,
                 clip_norm=100.0,
-                use_cuda=use_cuda,
             )
         )
 
         model.eval()
         val_loss.append(
-            validate_loop(
+            evaluate_epoch(
                 model=model,
-                criterion=criterion,
+                criterion=training_loss,
                 data_loader=validation_data,
-                training_t=training_t,
-                training_i=training_i,
-                criterion_t=criterion_t,
-                criterion_i=criterion_i,
-                use_cuda=use_cuda,
+                input_t=input_t,
+                eval_i=0,
             )
         )
-
-        for eval_i in evaluation_i:
-            train_eval[eval_i].append(
-                validate_loop(
-                    model=model,
-                    criterion=criterion,
-                    data_loader=training_data,
-                    training_t=training_t,
-                    training_i=training_i,
-                    criterion_t=criterion_t,
-                    criterion_i=eval_i,
-                    use_cuda=use_cuda,
-                )
-            )
-
-            val_eval[eval_i].append(
-                validate_loop(
-                    model=model,
-                    criterion=criterion,
-                    data_loader=validation_data,
-                    training_t=training_t,
-                    training_i=training_i,
-                    criterion_t=criterion_t,
-                    criterion_i=eval_i,
-                    use_cuda=use_cuda,
-                )
-            )
 
         scheduler.step()
         if scheduler.starting_cycle:
@@ -333,9 +197,4 @@ def train_until_plateau(
             elif cycle >= min_cycles:
                 break
 
-    return (
-        train_loss,
-        val_loss,
-        *(train_eval[i] for i in evaluation_i),
-        *(val_eval[i] for i in evaluation_i),
-    )
+    return train_loss, val_loss

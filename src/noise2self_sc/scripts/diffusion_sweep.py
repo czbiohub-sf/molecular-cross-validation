@@ -126,20 +126,36 @@ def main():
 
     re_losses = np.empty((args.n_trials, t_range.shape[0]), dtype=float)
     ss_losses = np.empty_like(re_losses)
-    gt_losses = np.empty_like(re_losses)
+    gt0_losses = np.empty(t_range.shape[0], dtype=float)
+    gt1_losses = np.empty_like(re_losses)
 
     if args.loss == "mse":
         loss = mean_squared_error
         normalization = "sqrt"
-        exp_means = expected_sqrt(
-            true_means * args.data_split * umis.sum(1, keepdims=True)
+        exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
+        exp_split_means = expected_sqrt(
+            true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
         )
     else:
         assert args.loss == "pois"
         loss = lambda y_true, y_pred: (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
         normalization = "none"
         exp_means = true_means * umis.sum(1, keepdims=True)
+        exp_split_means = exp_means
 
+    # calculate gt loss for sweep using full data
+    diff_op = compute_diff_op(umis, args.n_components, args.n_neighbors, args.tr_prob)
+
+    if loss == "mse":
+        diff = np.sqrt(umis)
+    else:
+        diff = umis.copy().astype(np.float)
+
+    for t in t_range:
+        gt0_losses[t] = loss(exp_means, diff)
+        diff = diff_op.dot(diff)
+
+    # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
         umis_X = data_rng.binomial(umis, args.data_split)
         umis_Y = umis - umis_X
@@ -150,20 +166,25 @@ def main():
 
         if args.loss == "mse":
             umis_X = np.sqrt(umis_X)
-            umis_Y = convert_expectations(np.sqrt(umis_Y), 1 - args.data_split)
+            umis_Y = np.sqrt(umis_Y)
 
         diff_X = umis_X.copy().astype(np.float)
 
         # perform diffusion over the knn graph
-        for j, t in enumerate(t_range):
-            re_losses[i, j] = loss(umis_X, diff_X)
-            ss_losses[i, j] = loss(umis_Y, diff_X)
-            gt_losses[i, j] = loss(exp_means, diff_X)
+        for t in t_range:
+            re_losses[i, t] = loss(umis_X, diff_X)
+            if args.loss == "mse":
+                ss_losses[i, t] = loss(
+                    umis_Y, convert_expectations(diff_X, args.data_split)
+                )
+                gt1_losses[i, t] = loss(
+                    exp_split_means, convert_expectations(diff_X, args.data_split)
+                )
+            else:
+                ss_losses[i, t] = loss(umis_Y, diff_X)
+                gt1_losses[i, t] = loss(exp_split_means, diff_X)
 
             diff_X = diff_op.dot(diff_X)
-
-    t_opt = t_range[np.argmin(ss_losses.mean(0))]
-    logger.info(f"Optimal diffusion time: {t_opt}")
 
     results = {
         "dataset": dataset_name,
@@ -173,7 +194,8 @@ def main():
         "param_range": t_range,
         "re_loss": re_losses,
         "ss_loss": ss_losses,
-        "gt_loss": gt_losses,
+        "gt0_loss": gt0_losses,
+        "gt1_loss": gt1_losses,
     }
 
     with open(output_file, "wb") as out:
