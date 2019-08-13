@@ -146,7 +146,7 @@ def main():
     # calculate gt loss for sweep using full data
     diff_op = compute_diff_op(umis, args.n_components, args.n_neighbors, args.tr_prob)
 
-    if loss == "mse":
+    if args.loss == "mse":
         diff = np.sqrt(umis)
     else:
         diff = umis.copy().astype(np.float)
