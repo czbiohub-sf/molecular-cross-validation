@@ -48,8 +48,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     run_group = parser.add_argument_group("run", description="Per-run parameters")
-    run_group.add_argument("--data_seed", type=int, required=True)
-    run_group.add_argument("--run_seed", type=int, required=True)
+    run_group.add_argument("--seed", type=int, required=True)
     run_group.add_argument(
         "--data_split", type=float, default=0.9, help="Split for self-supervision"
     )
@@ -110,16 +109,12 @@ def main():
     logger.info(f"torch version {torch.__version__}")
 
     dataset_name = args.dataset.name.split("_")[0]
-    output_file = args.output_dir / (
-        f"{args.loss}_autoencoder_{args.data_seed}_{args.run_seed}.pickle"
-    )
+    output_file = args.output_dir / f"{args.loss}_autoencoder_{args.seed}.pickle"
 
     logger.info(f"writing output to {output_file}")
 
-    seed = sum(map(ord, f"biohub_{args.run_seed}"))
-
-    np.random.seed(seed)
-    data_rng = np.random.RandomState(args.data_seed)
+    seed = sum(map(ord, f"biohub_{args.seed}"))
+    random_state = np.random.RandomState(seed)
 
     device = torch.device(f"cuda:{args.gpu}")
 
@@ -192,7 +187,7 @@ def main():
     val_losses = []
 
     with torch.cuda.device(device):
-        umis_X = data_rng.binomial(umis, args.data_split)
+        umis_X = random_state.binomial(umis, args.data_split)
         umis_Y = umis - umis_X
 
         if args.loss == "mse":
@@ -202,7 +197,7 @@ def main():
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
         umis_Y = torch.from_numpy(umis_Y).to(torch.float)
 
-        sample_indices = data_rng.permutation(umis.shape[0])
+        sample_indices = random_state.permutation(umis.shape[0])
         n_train = int(0.875 * umis.shape[0])
 
         train_dl, val_dl = noise2self_sc.train.split_dataset(

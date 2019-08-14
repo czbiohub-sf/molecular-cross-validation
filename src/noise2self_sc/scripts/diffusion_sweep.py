@@ -15,14 +15,18 @@ from noise2self_sc.util import expected_sqrt, convert_expectations
 
 
 def compute_diff_op(
-    umis: np.ndarray, n_components: int, n_neighbors: int, tr_prob: float
+    umis: np.ndarray,
+    n_components: int,
+    n_neighbors: int,
+    tr_prob: float,
+    random_state: np.random.RandomState,
 ):
     # calculate diffusion operator
     n_counts = np.median(umis.sum(axis=1))
 
     x1_norm = np.sqrt(umis / umis.sum(axis=1, keepdims=True) * n_counts)
 
-    U, S, V = randomized_svd(x1_norm, n_components)
+    U, S, V = randomized_svd(x1_norm, n_components, random_state=random_state)
 
     p = U.dot(np.diag(S))
 
@@ -40,8 +44,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     run_group = parser.add_argument_group("run", description="Per-run parameters")
-    run_group.add_argument("--data_seed", type=int, required=True)
-    run_group.add_argument("--run_seed", type=int, required=True)
+    run_group.add_argument("--seed", type=int, required=True)
     run_group.add_argument(
         "--data_split", type=float, default=0.9, help="Split for self-supervision"
     )
@@ -107,17 +110,11 @@ def main():
     logger.addHandler(logging.StreamHandler())
 
     dataset_name = args.dataset.name.split("_")[0]
-    output_file = (
-        args.output_dir
-        / f"{args.loss}_diffusion_{args.data_seed}_{args.run_seed}.pickle"
-    )
-
+    output_file = args.output_dir / f"{args.loss}_diffusion_{args.seed}.pickle"
     logger.info(f"writing output to {output_file}")
 
-    seed = sum(map(ord, f"biohub_{args.run_seed}"))
-
-    np.random.seed(seed)
-    data_rng = np.random.RandomState(args.data_seed)
+    seed = sum(map(ord, f"biohub_{args.seed}"))
+    random_state = np.random.RandomState(seed)
 
     with open(args.dataset, "rb") as f:
         true_means, umis = pickle.load(f)
@@ -144,7 +141,9 @@ def main():
         exp_split_means = exp_means
 
     # calculate gt loss for sweep using full data
-    diff_op = compute_diff_op(umis, args.n_components, args.n_neighbors, args.tr_prob)
+    diff_op = compute_diff_op(
+        umis, args.n_components, args.n_neighbors, args.tr_prob, random_state
+    )
 
     if args.loss == "mse":
         diff = np.sqrt(umis)
@@ -157,11 +156,11 @@ def main():
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
-        umis_X = data_rng.binomial(umis, args.data_split)
+        umis_X = random_state.binomial(umis, args.data_split)
         umis_Y = umis - umis_X
 
         diff_op = compute_diff_op(
-            umis_X, args.n_components, args.n_neighbors, args.tr_prob
+            umis_X, args.n_components, args.n_neighbors, args.tr_prob, random_state
         )
 
         if args.loss == "mse":
