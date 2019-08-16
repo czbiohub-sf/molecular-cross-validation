@@ -156,7 +156,7 @@ def main():
         eval1_fn = AdjustedMSELoss(args.data_split)
     else:
         assert args.loss == "pois"
-        exp_means = true_means * umis.sum(1, keepsdims=True)
+        exp_means = true_means * umis.sum(1, keepdims=True)
         exp_means = torch.from_numpy(exp_means).to(torch.float)
         exp_split_means = exp_means
 
