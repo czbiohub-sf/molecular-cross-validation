@@ -58,8 +58,14 @@ def main():
         true_means, umis = pickle.load(f)
 
     exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
+
+    overlap = overlap_correction(args.data_split,
+                                                umis.sum(1).mean(),
+                                                args.gt_size)
+    data_split_complement = 1 - args.data_split + overlap
+
     exp_split_means = expected_sqrt(
-        true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
+        true_means * data_split_complement * umis.sum(1, keepdims=True)
     )
 
     k_range = np.arange(1, args.max_components + 1)
@@ -80,8 +86,7 @@ def main():
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
-        umis_X = random_state.binomial(umis, args.data_split)
-        umis_Y = umis - umis_X
+        umis_X, umis_Y = split_molecules(umis, args.data_split, overlap, random_state)
 
         umis_X = np.sqrt(umis_X)
         umis_Y = np.sqrt(umis_Y)
@@ -93,10 +98,14 @@ def main():
 
             re_losses[i, j] = mean_squared_error(umis_X, pca_X)
             ss_losses[i, j] = mean_squared_error(
-                umis_Y, convert_expectations(pca_X, args.data_split)
+                umis_Y, convert_expectations(pca_X,
+                                             args.data_split,
+                                             data_split_complement)
             )
             gt1_losses[i, j] = mean_squared_error(
-                exp_split_means, convert_expectations(pca_X, args.data_split)
+                exp_split_means, convert_expectations(pca_X,
+                                                      args.data_split,
+                                                      data_split_complement)
             )
 
     results = {
