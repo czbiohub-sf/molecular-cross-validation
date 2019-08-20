@@ -10,7 +10,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error
 from sklearn.utils.extmath import randomized_svd
 
-from noise2self_sc.util import expected_sqrt, convert_expectations
+import noise2self_sc.util as ut
 
 
 def main():
@@ -30,6 +30,7 @@ def main():
     )
     data_group.add_argument("--dataset", type=pathlib.Path, required=True)
     data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
+    data_group.add_argument("--true_count", type=float, required=True)
 
     model_group = parser.add_argument_group("model", description="Model parameters")
     model_group.add_argument(
@@ -57,23 +58,23 @@ def main():
     with open(args.dataset, "rb") as f:
         true_means, umis = pickle.load(f)
 
-    exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
-
-    overlap = overlap_correction(args.data_split,
-                                                umis.sum(1).mean(),
-                                                args.gt_size)
-    data_split_complement = 1 - args.data_split + overlap
-
-    exp_split_means = expected_sqrt(
-        true_means * data_split_complement * umis.sum(1, keepdims=True)
-    )
-
     k_range = np.arange(1, args.max_components + 1)
 
     re_losses = np.empty((args.n_trials, k_range.shape[0]), dtype=float)
     ss_losses = np.empty_like(re_losses)
     gt0_losses = np.empty(k_range.shape[0], dtype=float)
     gt1_losses = np.empty_like(re_losses)
+
+    exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
+
+    overlap = ut.overlap_correction(
+        args.data_split, umis.sum(1).mean(), args.true_count
+    )
+    data_split_complement = 1 - args.data_split + overlap
+
+    exp_split_means = ut.expected_sqrt(
+        true_means * data_split_complement * umis.sum(1, keepdims=True)
+    )
 
     # calculate gt loss for sweep using full data
     U, S, V = randomized_svd(
@@ -86,7 +87,9 @@ def main():
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
-        umis_X, umis_Y = split_molecules(umis, args.data_split, overlap, random_state)
+        umis_X, umis_Y = ut.split_molecules(
+            umis, args.data_split, overlap, random_state
+        )
 
         umis_X = np.sqrt(umis_X)
         umis_Y = np.sqrt(umis_Y)
@@ -98,14 +101,12 @@ def main():
 
             re_losses[i, j] = mean_squared_error(umis_X, pca_X)
             ss_losses[i, j] = mean_squared_error(
-                umis_Y, convert_expectations(pca_X,
-                                             args.data_split,
-                                             data_split_complement)
+                umis_Y,
+                ut.convert_expectations(pca_X, args.data_split, data_split_complement),
             )
             gt1_losses[i, j] = mean_squared_error(
-                exp_split_means, convert_expectations(pca_X,
-                                                      args.data_split,
-                                                      data_split_complement)
+                exp_split_means,
+                ut.convert_expectations(pca_X, args.data_split, data_split_complement),
             )
 
     results = {

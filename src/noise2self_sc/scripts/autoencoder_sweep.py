@@ -19,20 +19,25 @@ import noise2self_sc.train
 
 from noise2self_sc.models.autoencoder import CountAutoencoder
 from noise2self_sc.train.aggmo import AggMo
-from noise2self_sc.util import expected_sqrt, convert_expectations
+
+import noise2self_sc.util as ut
 
 
 class AdjustedMSELoss(object):
-    def __init__(self, a: float):
+    def __init__(self, a: float, b: float = None):
         assert 0.0 < a <= 1.0
         self.a = a
+        if b is None:
+            self.b = 1.0 - a
+        else:
+            self.b = b
 
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         y_pred = y_pred.detach().cpu()
 
         if self.a < 1.0:
             y_pred = torch.from_numpy(
-                convert_expectations(y_pred.numpy(), self.a, 1 - self.a)
+                ut.convert_expectations(y_pred.numpy(), self.a, self.b)
             ).to(torch.float)
 
         return func.mse_loss(y_pred, y_true)
@@ -59,6 +64,7 @@ def main():
     )
     data_group.add_argument("--dataset", type=pathlib.Path, required=True)
     data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
+    data_group.add_argument("--true_count", type=float, required=True)
 
     model_group = parser.add_argument_group("model", description="Model parameters")
 
@@ -140,28 +146,33 @@ def main():
     gt0_losses = np.empty_like(re_losses)
     gt1_losses = np.empty_like(re_losses)
 
+    overlap = ut.overlap_correction(
+        args.data_split, umis.sum(1).mean(), args.true_count
+    )
+    data_split_complement = 1 - args.data_split + overlap
+
     if args.loss == "mse":
-        exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
+        exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
         exp_means = torch.from_numpy(exp_means).to(torch.float)
 
-        exp_split_means = expected_sqrt(
-            true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
+        exp_split_means = ut.expected_sqrt(
+            true_means * data_split_complement * umis.sum(1, keepdims=True)
         )
         exp_split_means = torch.from_numpy(exp_split_means).to(torch.float)
 
-        normalization = "sqrt"
         loss_fn = nn.MSELoss()
+        normalization = "sqrt"
         input_t = torch.nn.Identity()
         eval0_fn = AdjustedMSELoss(1.0)
-        eval1_fn = AdjustedMSELoss(args.data_split)
+        eval1_fn = AdjustedMSELoss(args.data_split, data_split_complement)
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
         exp_means = torch.from_numpy(exp_means).to(torch.float)
         exp_split_means = exp_means
 
-        normalization = "log1p"
         loss_fn = nn.PoissonNLLLoss()
+        normalization = "log1p"
         input_t = torch.log1p
         eval0_fn = poisson_nll_loss_cpu
         eval1_fn = poisson_nll_loss_cpu
@@ -187,8 +198,9 @@ def main():
     val_losses = []
 
     with torch.cuda.device(device):
-        umis_X = random_state.binomial(umis, args.data_split)
-        umis_Y = umis - umis_X
+        umis_X, umis_Y = ut.split_molecules(
+            umis, args.data_split, overlap, random_state
+        )
 
         if args.loss == "mse":
             umis_X = np.sqrt(umis_X)
@@ -200,7 +212,7 @@ def main():
         sample_indices = random_state.permutation(umis.shape[0])
         n_train = int(0.875 * umis.shape[0])
 
-        train_dl, val_dl = noise2self_sc.train.split_dataset(
+        train_dl, val_dl = n2s.train.split_dataset(
             umis_X,
             umis_Y,
             exp_split_means,

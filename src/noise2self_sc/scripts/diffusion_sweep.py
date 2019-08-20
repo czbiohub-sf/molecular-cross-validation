@@ -11,7 +11,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils.extmath import randomized_svd
 
-from noise2self_sc.util import expected_sqrt, convert_expectations
+import noise2self_sc.util as ut
 
 
 def compute_diff_op(
@@ -57,6 +57,7 @@ def main():
     )
     data_group.add_argument("--dataset", type=pathlib.Path, required=True)
     data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
+    data_group.add_argument("--true_count", type=float, required=True)
 
     model_group = parser.add_argument_group("model", description="Model parameters")
     model_group.add_argument(
@@ -79,7 +80,7 @@ def main():
         help="poisson likelihood",
     )
 
-    diff_op_group = parser.add_argument_group(
+    diff_op_group = model_group.add_argument_group(
         "diff_op", description="Parameters for computing the diffusion operator"
     )
     diff_op_group.add_argument(
@@ -126,12 +127,17 @@ def main():
     gt0_losses = np.empty(t_range.shape[0], dtype=float)
     gt1_losses = np.empty_like(re_losses)
 
+    overlap = ut.overlap_correction(
+        args.data_split, umis.sum(1).mean(), args.true_count
+    )
+    data_split_complement = 1 - args.data_split + overlap
+
     if args.loss == "mse":
         loss = mean_squared_error
         normalization = "sqrt"
-        exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
-        exp_split_means = expected_sqrt(
-            true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
+        exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
+        exp_split_means = ut.expected_sqrt(
+            true_means * data_split_complement * umis.sum(1, keepdims=True)
         )
     else:
         assert args.loss == "pois"
@@ -156,8 +162,9 @@ def main():
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
-        umis_X = random_state.binomial(umis, args.data_split)
-        umis_Y = umis - umis_X
+        umis_X, umis_Y = ut.split_molecules(
+            umis, args.data_split, overlap, random_state
+        )
 
         diff_op = compute_diff_op(
             umis_X, args.n_components, args.n_neighbors, args.tr_prob, random_state
@@ -174,10 +181,16 @@ def main():
             re_losses[i, t] = loss(umis_X, diff_X)
             if args.loss == "mse":
                 ss_losses[i, t] = loss(
-                    umis_Y, convert_expectations(diff_X, args.data_split)
+                    umis_Y,
+                    ut.convert_expectations(
+                        diff_X, args.data_split, data_split_complement
+                    ),
                 )
                 gt1_losses[i, t] = loss(
-                    exp_split_means, convert_expectations(diff_X, args.data_split)
+                    exp_split_means,
+                    ut.convert_expectations(
+                        diff_X, args.data_split, data_split_complement
+                    ),
                 )
             else:
                 ss_losses[i, t] = loss(umis_Y, diff_X)
