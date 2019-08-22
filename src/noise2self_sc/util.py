@@ -1,35 +1,44 @@
-import math
 from typing import Tuple, Union
 
 import numpy as np
 import scipy.stats
+import scipy.special
+
+import numba as nb
 
 
-def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 4.0) -> np.ndarray:
+# caching some values for efficiency
+taylor_range = np.arange(1, 30)
+taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
+
+
+@nb.vectorize([nb.float64(nb.float64)], identity=0.0, target="parallel")
+def taylor_expand(x):
+    return (x ** taylor_range / taylor_factors).sum()
+
+
+@nb.vectorize([nb.float64(nb.float64)], identity=0.0, target="parallel")
+def taylor_around_mean(x):
+    return np.sqrt(x) - x ** (-0.5) / 8 + x ** (-1.5) / 16 - x ** (-2.5) / 128
+
+
+def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 15.0) -> np.ndarray:
     """Return expected square root of a poisson distribution. Uses Taylor series
      centered at 0 or mean, as appropriate.
 
     :param mean_expression: Array of expected mean expression values
-    :param cutoff: point for switching between Taylor series
+    :param cutoff: point for switching between approximations
     :return: Array of expected sqrt mean expression values
     """
 
-    truncated_taylor_around_0 = np.zeros(mean_expression.shape)
     nonzeros = mean_expression != 0
     mean_expression = mean_expression + 1e-8
     clipped_mean_expression = np.minimum(mean_expression, cutoff)
 
-    for k in range(15):
-        truncated_taylor_around_0 += (
-            clipped_mean_expression ** k / math.factorial(k) * np.sqrt(k)
-        )
+    truncated_taylor_around_0 = taylor_expand(clipped_mean_expression)
     truncated_taylor_around_0 *= np.exp(-mean_expression)
 
-    truncated_taylor_around_mean = (
-        np.sqrt(mean_expression)
-        - np.sqrt(mean_expression) ** (-0.5) / 8
-        + np.sqrt(mean_expression) ** (-1.5) / 16
-    )
+    truncated_taylor_around_mean = taylor_around_mean(mean_expression)
 
     return nonzeros * (
         truncated_taylor_around_0 * (mean_expression < cutoff)
@@ -37,7 +46,9 @@ def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 4.0) -> np.ndarra
     )
 
 
-def convert_expectations(exp_sqrt: np.ndarray, a: float, b: float = None) -> np.ndarray:
+def convert_expectations(
+    exp_sqrt: np.ndarray, a: float, b: Union[float, np.ndarray] = None
+) -> np.ndarray:
     """Takes expected sqrt expression calculated for one scaling factor and converts
     to the corresponding levels at a second scaling factor
 
@@ -48,16 +59,26 @@ def convert_expectations(exp_sqrt: np.ndarray, a: float, b: float = None) -> np.
     """
     if b is None:
         b = 1.0 - a
-    if a == b:
-        return exp_sqrt
 
     exp_sqrt = np.maximum(exp_sqrt, 0)
     max_val = np.max(exp_sqrt ** 2) / a
 
-    xp = expected_sqrt(np.arange(0, max_val, 0.01) * a)
-    fp = expected_sqrt(np.arange(0, max_val, 0.01) * b)
+    vs = 2 ** np.arange(0, np.ceil(np.log2(max_val + 1)) + 1) - 1
+    p_range = np.hstack(
+        [np.arange(v, vs[i + 1], 2 ** (i + 1) * 0.01) for i, v in enumerate(vs[:-1])]
+    )
 
-    return np.interp(exp_sqrt, xp, fp)
+    xp = expected_sqrt(p_range * a)
+    fp = expected_sqrt(p_range * b)
+
+    if isinstance(b, np.ndarray):
+        interps = np.empty_like(exp_sqrt)
+        for i in range(exp_sqrt.shape[0]):
+            interps[i, :] = np.interp(exp_sqrt[i, :], xp, fp[i, :])
+
+        return interps
+    else:
+        return np.interp(exp_sqrt, xp, fp)
 
 
 def poisson_fit(umis: np.ndarray) -> np.ndarray:

@@ -57,7 +57,6 @@ def main():
     )
     data_group.add_argument("--dataset", type=pathlib.Path, required=True)
     data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
-    data_group.add_argument("--true_count", type=float, required=True)
 
     model_group = parser.add_argument_group("model", description="Model parameters")
     model_group.add_argument(
@@ -118,7 +117,7 @@ def main():
     random_state = np.random.RandomState(seed)
 
     with open(args.dataset, "rb") as f:
-        true_means, umis = pickle.load(f)
+        true_means, true_counts, umis = pickle.load(f)
 
     t_range = np.arange(args.max_time + 1)
 
@@ -128,7 +127,7 @@ def main():
     gt1_losses = np.empty_like(re_losses)
 
     overlap = ut.overlap_correction(
-        args.data_split, umis.sum(1).mean(), args.true_count
+        args.data_split, umis.sum(1, keepdims=True), true_counts
     )
     data_split_complement = 1 - args.data_split + overlap
 
@@ -180,18 +179,11 @@ def main():
         for t in t_range:
             re_losses[i, t] = loss(umis_X, diff_X)
             if args.loss == "mse":
-                ss_losses[i, t] = loss(
-                    umis_Y,
-                    ut.convert_expectations(
-                        diff_X, args.data_split, data_split_complement
-                    ),
+                conv_exp = ut.convert_expectations(
+                    diff_X, args.data_split, data_split_complement
                 )
-                gt1_losses[i, t] = loss(
-                    exp_split_means,
-                    ut.convert_expectations(
-                        diff_X, args.data_split, data_split_complement
-                    ),
-                )
+                ss_losses[i, t] = loss(umis_Y, conv_exp)
+                gt1_losses[i, t] = loss(exp_split_means, conv_exp)
             else:
                 ss_losses[i, t] = loss(umis_Y, diff_X)
                 gt1_losses[i, t] = loss(exp_split_means, diff_X)

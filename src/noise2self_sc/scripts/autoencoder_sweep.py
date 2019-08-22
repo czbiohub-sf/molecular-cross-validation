@@ -7,6 +7,8 @@ import pathlib
 import pickle
 import time
 
+from typing import Union
+
 import numpy as np
 
 import torch
@@ -24,7 +26,7 @@ import noise2self_sc.util as ut
 
 
 class AdjustedMSELoss(object):
-    def __init__(self, a: float, b: float = None):
+    def __init__(self, a: float, b: Union[float, np.ndarray] = None):
         assert 0.0 < a <= 1.0
         self.a = a
         if b is None:
@@ -64,7 +66,6 @@ def main():
     )
     data_group.add_argument("--dataset", type=pathlib.Path, required=True)
     data_group.add_argument("--output_dir", type=pathlib.Path, required=True)
-    data_group.add_argument("--true_count", type=float, required=True)
 
     model_group = parser.add_argument_group("model", description="Model parameters")
 
@@ -128,7 +129,7 @@ def main():
     torch.manual_seed(seed)
 
     with open(args.dataset, "rb") as f:
-        true_means, umis = pickle.load(f)
+        true_means, true_counts, umis = pickle.load(f)
 
     n_features = umis.shape[-1]
 
@@ -147,7 +148,7 @@ def main():
     gt1_losses = np.empty_like(re_losses)
 
     overlap = ut.overlap_correction(
-        args.data_split, umis.sum(1).mean(), args.true_count
+        args.data_split, umis.sum(1, keepdims=True), true_counts
     )
     data_split_complement = 1 - args.data_split + overlap
 
@@ -206,6 +207,7 @@ def main():
             umis_X = np.sqrt(umis_X)
             umis_Y = np.sqrt(umis_Y)
 
+        umis = torch.from_numpy(umis).to(torch.float).to(device)
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
         umis_Y = torch.from_numpy(umis_Y).to(torch.float)
 
@@ -222,7 +224,7 @@ def main():
         )
 
         gt_dl = torch.utils.data.DataLoader(
-            torch.utils.data.TensorDataset(umis_X, exp_means),
+            torch.utils.data.TensorDataset(umis, exp_means),
             batch_size=exp_means.size(0),
         )
 

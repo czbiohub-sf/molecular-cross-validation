@@ -118,7 +118,7 @@ def main():
     true_means = np.exp(true_exp) / np.exp(true_exp).sum(1, keepdims=True)
 
     with open(dataset_file, "wb") as out:
-        pickle.dump((true_means, umis), out)
+        pickle.dump((true_means, np.inf, umis), out)
 
 
 if __name__ == "__main__":
