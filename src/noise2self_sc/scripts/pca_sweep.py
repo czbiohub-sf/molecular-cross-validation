@@ -93,6 +93,7 @@ def main():
         umis_Y = np.sqrt(umis_Y)
 
         U, S, V = randomized_svd(umis_X, n_components=args.max_components)
+        US = U.dot(S)
 
         for j, k in enumerate(k_range):
             pca_X = US[:, :k].dot(V[:k, :])
