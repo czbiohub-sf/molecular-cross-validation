@@ -22,12 +22,12 @@ def taylor_around_mean(x):
     return np.sqrt(x) - x ** (-0.5) / 8 + x ** (-1.5) / 16 - 5 * x ** (-2.5) / 128
 
 
-def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 15.0) -> np.ndarray:
+def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndarray:
     """Return expected square root of a poisson distribution. Uses Taylor series
      centered at 0 or mean, as appropriate.
 
     :param mean_expression: Array of expected mean expression values
-    :param cutoff: point for switching between approximations
+    :param cutoff: point for switching between approximations (default is ~optimal)
     :return: Array of expected sqrt mean expression values
     """
 
