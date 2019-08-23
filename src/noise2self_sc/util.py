@@ -12,12 +12,12 @@ taylor_range = np.arange(1, 60)
 taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
 
 
-@nb.vectorize([nb.float64(nb.float64)], identity=0.0, target="parallel")
+@nb.vectorize([nb.float64(nb.float64)], target="parallel")
 def taylor_expand(x):
     return (x ** taylor_range / taylor_factors).sum()
 
 
-@nb.vectorize([nb.float64(nb.float64)], identity=0.0, target="parallel")
+@nb.vectorize([nb.float64(nb.float64)], target="parallel")
 def taylor_around_mean(x):
     return np.sqrt(x) - x ** (-0.5) / 8 + x ** (-1.5) / 16 - 5 * x ** (-2.5) / 128
 
@@ -30,19 +30,18 @@ def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndar
     :param cutoff: point for switching between approximations (default is ~optimal)
     :return: Array of expected sqrt mean expression values
     """
-
+    exp_around_mean = np.zeros_like(mean_expression)
     nonzeros = mean_expression != 0
-    mean_expression = mean_expression + 1e-8
-    clipped_mean_expression = np.minimum(mean_expression, cutoff)
 
-    truncated_taylor_around_0 = taylor_expand(clipped_mean_expression)
-    truncated_taylor_around_0 *= np.exp(-mean_expression)
+    # taylor_expand takes large powers, clip to the cutoff to avoid overflow
+    exp_around_zero = taylor_expand(np.minimum(mean_expression, cutoff))
+    exp_around_zero *= np.exp(-mean_expression)
 
-    truncated_taylor_around_mean = taylor_around_mean(mean_expression)
+    exp_around_mean[nonzeros] = taylor_around_mean(mean_expression)[nonzeros]
 
     return nonzeros * (
-        truncated_taylor_around_0 * (mean_expression < cutoff)
-        + truncated_taylor_around_mean * (mean_expression >= cutoff)
+        exp_around_zero * (mean_expression < cutoff)
+        + exp_around_mean * (mean_expression >= cutoff)
     )
 
 
