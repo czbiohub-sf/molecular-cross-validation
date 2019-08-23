@@ -19,7 +19,7 @@ def taylor_expand(x):
 
 @nb.vectorize([nb.float64(nb.float64)], identity=0.0, target="parallel")
 def taylor_around_mean(x):
-    return np.sqrt(x) - x ** (-0.5) / 8 + x ** (-1.5) / 16 - x ** (-2.5) / 128
+    return np.sqrt(x) - x ** (-0.5) / 8 + x ** (-1.5) / 16 - 5 * x ** (-2.5) / 128
 
 
 def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 15.0) -> np.ndarray:
