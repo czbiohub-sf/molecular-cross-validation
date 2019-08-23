@@ -8,7 +8,7 @@ import numba as nb
 
 
 # caching some values for efficiency
-taylor_range = np.arange(1, 30)
+taylor_range = np.arange(1, 60)
 taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
 
 
