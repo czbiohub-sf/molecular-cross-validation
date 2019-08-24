@@ -122,7 +122,7 @@ def overlap_correction(
     :param sample_ratio: Ratio of counts in the sample compared to the original cells
     :return: Adjusted values for data_split, and the overlap correction factor
     """
-    if sample_ratio == 0.0:
+    if np.all(sample_ratio == 0.0):
         return data_split, 0.0
 
     a = (1 - data_split) / data_split
