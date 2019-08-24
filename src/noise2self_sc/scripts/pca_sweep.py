@@ -64,10 +64,9 @@ def main():
     gt0_losses = np.empty(k_range.shape[0], dtype=float)
     gt1_losses = np.empty_like(re_losses)
 
-    overlap = ut.overlap_correction(
-        args.data_split, umis.sum(1, keepdims=True), true_counts
+    data_split, data_split_complement, overlap = ut.overlap_correction(
+        args.data_split, umis.sum(1, keepdims=True) / true_counts
     )
-    data_split_complement = 1 - args.data_split + overlap
 
     exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
     exp_split_means = ut.expected_sqrt(
@@ -85,9 +84,7 @@ def main():
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
-        umis_X, umis_Y = ut.split_molecules(
-            umis, args.data_split, overlap, random_state
-        )
+        umis_X, umis_Y = ut.split_molecules(umis, data_split, overlap, random_state)
 
         umis_X = np.sqrt(umis_X)
         umis_Y = np.sqrt(umis_Y)

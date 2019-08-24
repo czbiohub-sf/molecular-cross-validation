@@ -126,24 +126,25 @@ def main():
     gt0_losses = np.empty(t_range.shape[0], dtype=float)
     gt1_losses = np.empty_like(re_losses)
 
-    overlap = ut.overlap_correction(
-        args.data_split, umis.sum(1, keepdims=True), true_counts
+    data_split, data_split_complement, overlap = ut.overlap_correction(
+        args.data_split, umis.sum(1, keepdims=True) / true_counts
     )
-    data_split_complement = 1 - args.data_split + overlap
 
     if args.loss == "mse":
-        loss = mean_squared_error
-        normalization = "sqrt"
         exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
         exp_split_means = ut.expected_sqrt(
             true_means * data_split_complement * umis.sum(1, keepdims=True)
         )
+
+        loss = mean_squared_error
+        normalization = "sqrt"
     else:
         assert args.loss == "pois"
+        exp_means = true_means * umis.sum(1, keepdims=True)
+        exp_split_means = exp_means * data_split_complement
+
         loss = lambda y_true, y_pred: (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
         normalization = "none"
-        exp_means = true_means * umis.sum(1, keepdims=True)
-        exp_split_means = exp_means
 
     # calculate gt loss for sweep using full data
     diff_op = compute_diff_op(
@@ -161,9 +162,7 @@ def main():
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
-        umis_X, umis_Y = ut.split_molecules(
-            umis, args.data_split, overlap, random_state
-        )
+        umis_X, umis_Y = ut.split_molecules(umis, data_split, overlap, random_state)
 
         diff_op = compute_diff_op(
             umis_X, args.n_components, args.n_neighbors, args.tr_prob, random_state

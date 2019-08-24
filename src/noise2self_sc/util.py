@@ -120,7 +120,7 @@ def overlap_correction(
 
     :param data_split: Proportion of the sample going into the first group
     :param sample_ratio: Ratio of counts in the sample compared to the original cells
-    :return: Adjusted value for data_split and the overlap correction factor
+    :return: Adjusted values for data_split, and the overlap correction factor
     """
     if sample_ratio == 0.0:
         return data_split, 0.0
@@ -133,9 +133,10 @@ def overlap_correction(
     assert np.allclose(p + q - p * q, sample_ratio)
 
     new_split = p / sample_ratio
-    overlap_factor = new_split + q / sample_ratio - 1
+    new_split_complement = q / sample_ratio
+    overlap_factor = new_split + new_split_complement - 1
 
-    return new_split, overlap_factor
+    return new_split, new_split_complement, overlap_factor
 
 
 def split_molecules(
