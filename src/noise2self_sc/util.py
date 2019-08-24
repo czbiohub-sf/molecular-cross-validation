@@ -37,7 +37,7 @@ def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndar
     exp_around_zero = taylor_expand(np.minimum(mean_expression, cutoff))
     exp_around_zero *= np.exp(-mean_expression)
 
-    exp_around_mean[nonzeros] = taylor_around_mean(mean_expression)[nonzeros]
+    exp_around_mean[nonzeros] = taylor_around_mean(mean_expression[nonzeros])
 
     return nonzeros * (
         exp_around_zero * (mean_expression < cutoff)
