@@ -154,7 +154,7 @@ def main():
     if args.loss == "mse":
         exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
         exp_split_means = ut.expected_sqrt(
-            exp_means * data_split_complement * umis.sum(1, keepdims=True)
+            true_means * data_split_complement * umis.sum(1, keepdims=True)
         )
 
         exp_means = torch.from_numpy(exp_means).to(torch.float)
@@ -199,10 +199,14 @@ def main():
     train_losses = []
     val_losses = []
 
+    full_train_losses = []
+    full_val_losses = []
+
     with torch.cuda.device(device):
         umis_X, umis_Y = ut.split_molecules(umis, data_split, overlap, random_state)
 
         if args.loss == "mse":
+            umis = np.sqrt(umis)
             umis_X = np.sqrt(umis_X)
             umis_Y = np.sqrt(umis_Y)
 
@@ -212,8 +216,8 @@ def main():
         data_split = torch.from_numpy(data_split)
         data_split_complement = torch.from_numpy(data_split_complement)
 
-        sample_indices = random_state.permutation(umis.shape[0])
-        n_train = int(0.875 * umis.shape[0])
+        sample_indices = random_state.permutation(umis.size(0))
+        n_train = int(0.875 * umis.size(0))
 
         train_dl, val_dl = n2s.train.split_dataset(
             umis_X,
@@ -226,9 +230,12 @@ def main():
             n_train=n_train,
         )
 
-        gt_dl = torch.utils.data.DataLoader(
-            torch.utils.data.TensorDataset(umis, exp_means),
-            batch_size=exp_means.size(0),
+        full_train_dl, full_val_dl = n2s.train.split_dataset(
+            umis,
+            exp_means,
+            batch_size=len(sample_indices),
+            indices=sample_indices,
+            n_train=n_train,
         )
 
         t0 = time.time()
@@ -252,18 +259,36 @@ def main():
             train_losses.append(train_loss)
             val_losses.append(val_loss)
 
-            logger.debug(f"finished {b} after {time.time() - t0} seconds")
-
             re_losses[j] = train_loss[-1]
             ss_losses[j] = n2s.train.evaluate_epoch(
                 model, eval1_fn, train_dl, input_t, eval_i=[1, 3, 4]
             )
-
-            gt0_losses[j] = n2s.train.evaluate_epoch(
-                model, eval0_fn, gt_dl, input_t, eval_i=[1]
-            )
             gt1_losses[j] = n2s.train.evaluate_epoch(
                 model, eval1_fn, train_dl, input_t, eval_i=[2, 3, 4]
+            )
+
+            model = model_factory(b)
+            optimizer = optimizer_factory(model)
+
+            full_train_loss, full_val_loss = n2s.train.train_until_plateau(
+                model,
+                loss_fn,
+                optimizer,
+                full_train_dl,
+                full_val_dl,
+                input_t=input_t,
+                min_cycles=3,
+                threshold=0.01,
+                scheduler_kw=scheduler_kw,
+            )
+
+            full_train_losses.append(full_train_loss)
+            full_val_losses.append(full_val_loss)
+
+            logger.debug(f"finished {b} after {time.time() - t0} seconds")
+
+            gt0_losses[j] = n2s.train.evaluate_epoch(
+                model, eval0_fn, full_train_dl, input_t, eval_i=[1]
             )
 
     results = {
@@ -278,6 +303,8 @@ def main():
         "gt1_loss": gt1_losses,
         "train_losses": train_losses,
         "val_losses": val_losses,
+        "full_train_losses": full_train_losses,
+        "full_val_losses": full_val_losses,
     }
 
     with open(output_file, "wb") as out:
