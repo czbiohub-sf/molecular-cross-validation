@@ -25,31 +25,27 @@ from noise2self_sc.train.aggmo import AggMo
 import noise2self_sc.util as ut
 
 
-class AdjustedMSELoss(object):
-    def __init__(self, a: Union[float, np.ndarray], b: Union[float, np.ndarray] = None):
-        self.a = a
-        if b is None:
-            self.b = 1.0 - a
-        else:
-            self.b = b
-
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        y_pred = y_pred.detach().cpu()
-
-        y_pred = torch.from_numpy(
-            ut.convert_expectations(y_pred.numpy(), self.a, self.b)
-        ).to(torch.float)
-
-        return func.mse_loss(y_pred, y_true)
-
-
 def mse_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     y_pred = y_pred.detach().cpu()
 
     return func.mse_loss(y_pred, y_true)
 
 
-def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+def adjusted_mse_loss_cpu(
+    y_pred: torch.Tensor, y_true: torch.Tensor, a: torch.Tensor, b: torch.Tensor
+) -> torch.Tensor:
+    y_pred = y_pred.detach().cpu()
+
+    y_pred = torch.from_numpy(
+        ut.convert_expectations(y_pred.numpy(), a.numpy(), b.numpy())
+    ).to(torch.float)
+
+    return func.mse_loss(y_pred, y_true)
+
+
+def poisson_nll_loss_cpu(
+    y_pred: torch.Tensor, y_true: torch.Tensor, *_
+) -> torch.Tensor:
     y_pred = y_pred.detach().cpu()
 
     return func.poisson_nll_loss(y_pred, y_true)
@@ -168,7 +164,7 @@ def main():
         normalization = "sqrt"
         input_t = torch.nn.Identity()
         eval0_fn = mse_loss_cpu
-        eval1_fn = AdjustedMSELoss(data_split, data_split_complement)
+        eval1_fn = adjusted_mse_loss_cpu
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
@@ -213,6 +209,8 @@ def main():
         umis = torch.from_numpy(umis).to(torch.float).to(device)
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
         umis_Y = torch.from_numpy(umis_Y).to(torch.float)
+        data_split = torch.from_numpy(data_split)
+        data_split_complement = torch.from_numpy(data_split_complement)
 
         sample_indices = random_state.permutation(umis.shape[0])
         n_train = int(0.875 * umis.shape[0])
@@ -221,6 +219,8 @@ def main():
             umis_X,
             umis_Y,
             exp_split_means,
+            data_split,
+            data_split_complement,
             batch_size=len(sample_indices),
             indices=sample_indices,
             n_train=n_train,
@@ -256,14 +256,14 @@ def main():
 
             re_losses[j] = train_loss[-1]
             ss_losses[j] = n2s.train.evaluate_epoch(
-                model, eval1_fn, train_dl, input_t, eval_i=1
+                model, eval1_fn, train_dl, input_t, eval_i=[1, 3, 4]
             )
 
             gt0_losses[j] = n2s.train.evaluate_epoch(
-                model, eval0_fn, gt_dl, input_t, eval_i=1
+                model, eval0_fn, gt_dl, input_t, eval_i=[1]
             )
             gt1_losses[j] = n2s.train.evaluate_epoch(
-                model, eval1_fn, train_dl, input_t, eval_i=2
+                model, eval1_fn, train_dl, input_t, eval_i=[2, 3, 4]
             )
 
     results = {

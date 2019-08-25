@@ -46,13 +46,15 @@ def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndar
 
 
 def convert_expectations(
-    exp_sqrt: np.ndarray, a: float, b: Union[float, np.ndarray] = None
+    exp_sqrt: np.ndarray,
+    a: Union[float, np.ndarray],
+    b: Union[float, np.ndarray] = None,
 ) -> np.ndarray:
     """Takes expected sqrt expression calculated for one scaling factor and converts
     to the corresponding levels at a second scaling factor
 
     :param exp_sqrt: Expected sqrt values calculated at ``scale``
-    :param a: Input scaling factor of the data
+    :param a: Scaling factor(s) of the input data
     :param b: Scale for the output. Set to ``1 - a`` by default
     :return: A scaled array of expected sqrt expression
     """
