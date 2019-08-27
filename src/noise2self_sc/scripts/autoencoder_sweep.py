@@ -43,12 +43,18 @@ def adjusted_mse_loss_cpu(
     return func.mse_loss(y_pred, y_true)
 
 
-def poisson_nll_loss_cpu(
-    y_pred: torch.Tensor, y_true: torch.Tensor, *_
-) -> torch.Tensor:
+def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
     y_pred = y_pred.detach().cpu()
 
     return func.poisson_nll_loss(y_pred, y_true)
+
+
+def adjusted_poisson_nll_loss_cpu(
+    y_pred: torch.Tensor, y_true: torch.Tensor, a: torch.Tensor, b: torch.Tensor
+) -> torch.Tensor:
+    y_pred = y_pred.detach().cpu()
+
+    return func.poisson_nll_loss(y_pred - torch.log(a) + torch.log(b), y_true)
 
 
 def main():
@@ -168,15 +174,16 @@ def main():
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
+        exp_split_means = data_split_complement * exp_means
 
         exp_means = torch.from_numpy(exp_means).to(torch.float)
-        exp_split_means = exp_means
+        exp_split_means = torch.from_numpy(exp_split_means).to(torch.float)
 
         loss_fn = nn.PoissonNLLLoss()
         normalization = "log1p"
         input_t = torch.log1p
         eval0_fn = poisson_nll_loss_cpu
-        eval1_fn = poisson_nll_loss_cpu
+        eval1_fn = adjusted_poisson_nll_loss_cpu()
 
     model_factory = lambda bottleneck: CountAutoencoder(
         n_input=n_features,
@@ -212,8 +219,8 @@ def main():
         umis = torch.from_numpy(umis).to(torch.float).to(device)
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
         umis_Y = torch.from_numpy(umis_Y).to(torch.float)
-        data_split = torch.from_numpy(data_split)
-        data_split_complement = torch.from_numpy(data_split_complement)
+        data_split = torch.from_numpy(data_split).to(torch.float)
+        data_split_complement = torch.from_numpy(data_split_complement).to(torch.float)
 
         sample_indices = random_state.permutation(umis.size(0))
         n_train = int(0.875 * umis.size(0))
@@ -286,9 +293,7 @@ def main():
 
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
-            gt0_losses[j] = n2s.train.evaluate_epoch(
-                model, eval0_fn, full_train_dl, input_t, eval_i=[1]
-            )
+            gt0_losses[j] = eval0_fn(model(input_t(umis)), exp_means)
 
     results = {
         "dataset": dataset_name,
