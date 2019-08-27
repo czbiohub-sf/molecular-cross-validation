@@ -183,7 +183,7 @@ def main():
         normalization = "log1p"
         input_t = torch.log1p
         eval0_fn = poisson_nll_loss_cpu
-        eval1_fn = adjusted_poisson_nll_loss_cpu()
+        eval1_fn = adjusted_poisson_nll_loss_cpu
 
     model_factory = lambda bottleneck: CountAutoencoder(
         n_input=n_features,
