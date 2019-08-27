@@ -141,7 +141,7 @@ def main():
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
-        exp_split_means = exp_means * data_split_complement
+        exp_split_means = exp_means
 
         loss = lambda y_true, y_pred: (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
         normalization = "none"

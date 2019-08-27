@@ -168,10 +168,9 @@ def main():
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
-        exp_split_means = exp_means * data_split_complement
 
         exp_means = torch.from_numpy(exp_means).to(torch.float)
-        exp_split_means = torch.from_numpy(exp_split_means).to(torch.float)
+        exp_split_means = exp_means
 
         loss_fn = nn.PoissonNLLLoss()
         normalization = "log1p"
