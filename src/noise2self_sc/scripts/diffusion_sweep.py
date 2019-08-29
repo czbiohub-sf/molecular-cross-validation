@@ -141,7 +141,7 @@ def main():
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
-        exp_split_means = exp_means
+        exp_split_means = data_split_complement * exp_means
 
         loss = lambda y_true, y_pred: (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
         normalization = "none"
@@ -176,16 +176,16 @@ def main():
 
         # perform diffusion over the knn graph
         for t in t_range:
-            re_losses[i, t] = loss(umis_X, diff_X)
             if args.loss == "mse":
                 conv_exp = ut.convert_expectations(
-                    diff_X, args.data_split, data_split_complement
+                    diff_X, data_split, data_split_complement
                 )
-                ss_losses[i, t] = loss(umis_Y, conv_exp)
-                gt1_losses[i, t] = loss(exp_split_means, conv_exp)
             else:
-                ss_losses[i, t] = loss(umis_Y, diff_X)
-                gt1_losses[i, t] = loss(exp_split_means, diff_X)
+                conv_exp = diff_X / data_split * data_split_complement
+
+            re_losses[i, t] = loss(umis_X, diff_X)
+            ss_losses[i, t] = loss(umis_Y, conv_exp)
+            gt1_losses[i, t] = loss(exp_split_means, conv_exp)
 
             diff_X = diff_op.dot(diff_X)
 

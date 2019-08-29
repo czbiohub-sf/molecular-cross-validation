@@ -94,9 +94,7 @@ def main():
 
         for j, k in enumerate(k_range):
             pca_X = US[:, :k].dot(V[:k, :])
-            conv_exp = ut.convert_expectations(
-                pca_X, args.data_split, data_split_complement
-            )
+            conv_exp = ut.convert_expectations(pca_X, data_split, data_split_complement)
 
             re_losses[i, j] = mean_squared_error(umis_X, pca_X)
             ss_losses[i, j] = mean_squared_error(umis_Y, conv_exp)
