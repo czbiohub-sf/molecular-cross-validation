@@ -92,19 +92,10 @@ def main():
         umis_X, umis_Y = ut.split_molecules(umis, args.data_split, 0.0, random_state)
 
         if args.median_scale:
-            umis_X = (
-                umis_X
-                / umis_X.sum(axis=1, keepdims=True)
-                * np.median(umis_X.sum(axis=1))
-            )
-            umis_Y = (
-                umis_Y
-                / umis_Y.sum(axis=1, keepdims=True)
-                * np.median(umis_Y.sum(axis=1))
-            )
+            median_count = np.median(umis.sum(axis=1))
 
-        umis_X = np.sqrt(umis_X)
-        umis_Y = np.sqrt(umis_Y)
+            umis_X = umis_X / umis_X.sum(axis=1, keepdims=True) * median_count
+            umis_Y = umis_Y / umis_Y.sum(axis=1, keepdims=True) * median_count
 
         for j, n_pcs in enumerate(pc_range):
             magic_op = magic.MAGIC(n_pca=n_pcs, verbose=0)
@@ -118,10 +109,7 @@ def main():
                         denoised, umis_X[:, args.genes]
                     )
                     ss_losses[i, j, j2, j3] = mean_squared_error(
-                        ut.convert_expectations(
-                            denoised, args.data_split, 1 - args.data_split
-                        ),
-                        umis_Y[:, args.genes],
+                        denoised, umis_Y[:, args.genes]
                     )
 
     results = {
