@@ -94,7 +94,7 @@ def main():
             umis_X = umis_X / umis_X.sum(axis=1, keepdims=True) * median_count
             umis_Y = umis_Y / umis_Y.sum(axis=1, keepdims=True) * median_count
         else:
-            umis_Y *= args.data_split / (1 - args.data_split)
+            umis_Y = umis_Y * args.data_split / (1 - args.data_split)
 
         for n_pcs in pc_range:
             magic_op = magic.MAGIC(n_pca=n_pcs, verbose=0)
