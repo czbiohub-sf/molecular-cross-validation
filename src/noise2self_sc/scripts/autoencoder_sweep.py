@@ -81,7 +81,7 @@ def main():
         action="store_const",
         const="mse",
         dest="loss",
-        help="mean-squared error",
+        help="mean squared error",
     )
     loss_group.add_argument(
         "--pois",
@@ -121,7 +121,7 @@ def main():
 
     logger.info(f"torch version {torch.__version__}")
 
-    dataset_name = args.dataset.name.split("_")[0]
+    dataset_name = args.dataset.parent.name
     output_file = args.output_dir / f"{args.loss}_autoencoder_{args.seed}.pickle"
 
     logger.info(f"writing output to {output_file}")
@@ -168,7 +168,7 @@ def main():
 
         loss_fn = nn.MSELoss()
         normalization = "sqrt"
-        input_t = torch.nn.Identity()
+        input_t = nn.Identity()
         eval0_fn = mse_loss_cpu
         eval1_fn = adjusted_mse_loss_cpu
     else:

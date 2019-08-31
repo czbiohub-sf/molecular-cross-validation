@@ -46,7 +46,7 @@ def main():
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.StreamHandler())
 
-    dataset_name = args.dataset.name.split("_")[0]
+    dataset_name = args.dataset.parent.name
     output_file = args.output_dir / f"mse_pca_{args.seed}.pickle"
 
     logger.info(f"writing output to {output_file}")
