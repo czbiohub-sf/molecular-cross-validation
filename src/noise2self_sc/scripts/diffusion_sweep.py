@@ -11,7 +11,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils.extmath import randomized_svd
 
-from noise2self_sc.util import expected_sqrt, convert_expectations
+import noise2self_sc.util as ut
 
 
 def compute_diff_op(
@@ -79,7 +79,7 @@ def main():
         help="poisson likelihood",
     )
 
-    diff_op_group = parser.add_argument_group(
+    diff_op_group = model_group.add_argument_group(
         "diff_op", description="Parameters for computing the diffusion operator"
     )
     diff_op_group.add_argument(
@@ -109,7 +109,7 @@ def main():
     logger.setLevel(logging.DEBUG)
     logger.addHandler(logging.StreamHandler())
 
-    dataset_name = args.dataset.name.split("_")[0]
+    dataset_name = args.dataset.parent.name
     output_file = args.output_dir / f"{args.loss}_diffusion_{args.seed}.pickle"
     logger.info(f"writing output to {output_file}")
 
@@ -117,7 +117,7 @@ def main():
     random_state = np.random.RandomState(seed)
 
     with open(args.dataset, "rb") as f:
-        true_means, umis = pickle.load(f)
+        true_means, true_counts, umis = pickle.load(f)
 
     t_range = np.arange(args.max_time + 1)
 
@@ -126,19 +126,25 @@ def main():
     gt0_losses = np.empty(t_range.shape[0], dtype=float)
     gt1_losses = np.empty_like(re_losses)
 
+    data_split, data_split_complement, overlap = ut.overlap_correction(
+        args.data_split, umis.sum(1, keepdims=True) / true_counts
+    )
+
     if args.loss == "mse":
+        exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
+        exp_split_means = ut.expected_sqrt(
+            true_means * data_split_complement * umis.sum(1, keepdims=True)
+        )
+
         loss = mean_squared_error
         normalization = "sqrt"
-        exp_means = expected_sqrt(true_means * umis.sum(1, keepdims=True))
-        exp_split_means = expected_sqrt(
-            true_means * (1 - args.data_split) * umis.sum(1, keepdims=True)
-        )
     else:
         assert args.loss == "pois"
+        exp_means = true_means * umis.sum(1, keepdims=True)
+        exp_split_means = data_split_complement * exp_means
+
         loss = lambda y_true, y_pred: (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
         normalization = "none"
-        exp_means = true_means * umis.sum(1, keepdims=True)
-        exp_split_means = exp_means
 
     # calculate gt loss for sweep using full data
     diff_op = compute_diff_op(
@@ -156,8 +162,7 @@ def main():
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
-        umis_X = random_state.binomial(umis, args.data_split)
-        umis_Y = umis - umis_X
+        umis_X, umis_Y = ut.split_molecules(umis, data_split, overlap, random_state)
 
         diff_op = compute_diff_op(
             umis_X, args.n_components, args.n_neighbors, args.tr_prob, random_state
@@ -171,17 +176,16 @@ def main():
 
         # perform diffusion over the knn graph
         for t in t_range:
-            re_losses[i, t] = loss(umis_X, diff_X)
             if args.loss == "mse":
-                ss_losses[i, t] = loss(
-                    umis_Y, convert_expectations(diff_X, args.data_split)
-                )
-                gt1_losses[i, t] = loss(
-                    exp_split_means, convert_expectations(diff_X, args.data_split)
+                conv_exp = ut.convert_expectations(
+                    diff_X, data_split, data_split_complement
                 )
             else:
-                ss_losses[i, t] = loss(umis_Y, diff_X)
-                gt1_losses[i, t] = loss(exp_split_means, diff_X)
+                conv_exp = diff_X / data_split * data_split_complement
+
+            re_losses[i, t] = loss(umis_X, diff_X)
+            ss_losses[i, t] = loss(umis_Y, conv_exp)
+            gt1_losses[i, t] = loss(exp_split_means, conv_exp)
 
             diff_X = diff_op.dot(diff_X)
 

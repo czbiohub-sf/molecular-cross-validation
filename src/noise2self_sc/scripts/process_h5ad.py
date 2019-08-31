@@ -77,7 +77,8 @@ def main():
         umis = umis[:, top_genes]
 
     # calculating expected means from deep data
-    true_means = umis / umis.sum(1, keepdims=True)
+    true_counts = umis.sum(1, keepdims=True)
+    true_means = umis / true_counts
 
     if args.subsample:
         logger.info(f"downsampling to {args.subsample} counts per cell")
@@ -92,7 +93,7 @@ def main():
     logger.info(f"final umi matrix: {umis.shape}")
 
     with open(dataset_file, "wb") as out:
-        pickle.dump((true_means, umis), out)
+        pickle.dump((true_means, true_counts, umis), out)
 
 
 if __name__ == "__main__":

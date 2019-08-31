@@ -10,7 +10,6 @@ import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.optim import Optimizer
@@ -89,7 +88,7 @@ def evaluate_epoch(
     criterion: nn.Module,
     data_loader: DataLoader,
     input_t: Transform,
-    eval_i: int,
+    eval_i: Sequence[int],
 ):
     """Iterate through test data and compute losses
 
@@ -106,7 +105,7 @@ def evaluate_epoch(
 
     for data in data_loader:
         y = model(input_t(data[0]))
-        loss = criterion(y, data[eval_i])
+        loss = criterion(y, *(data[i] for i in eval_i))
 
         total_epoch_loss += loss.data.item()
 
@@ -178,7 +177,7 @@ def train_until_plateau(
                 criterion=training_loss,
                 data_loader=validation_data,
                 input_t=input_t,
-                eval_i=0,
+                eval_i=[0],
             )
         )
 
