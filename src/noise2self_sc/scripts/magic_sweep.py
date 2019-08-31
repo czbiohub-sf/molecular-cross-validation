@@ -82,7 +82,7 @@ def main():
     t_range = np.arange(1, args.max_time + 1)
 
     re_losses = np.empty(
-        (args.n_trials, k_range.shape[0], pc_range.shape[0], t_range.shape[0]),
+        (args.n_trials, pc_range.shape[0], k_range.shape[0], t_range.shape[0]),
         dtype=float,
     )
     ss_losses = np.empty_like(re_losses)
