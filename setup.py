@@ -44,6 +44,7 @@ setuptools.setup(
             "autoencoder_sweep = noise2self_sc.scripts.autoencoder_sweep:main",
             "diffusion_sweep = noise2self_sc.scripts.diffusion_sweep:main",
             "pca_sweep = noise2self_sc.scripts.pca_sweep:main",
+            "magic_sweep = noise2self_sc.scripts.magic_sweep:main",
             "process_h5ad = noise2self_sc.scripts.process_h5ad:main",
             "simulate_dataset = noise2self_sc.scripts.simulate_dataset:main",
         ]
