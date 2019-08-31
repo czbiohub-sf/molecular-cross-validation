@@ -82,7 +82,7 @@ def main():
     t_range = np.arange(1, args.max_time + 1)
 
     re_losses = np.empty(
-        (args.n_trials, n_range.shape[0], k_range.shape[0], t_range.shape[0]),
+        (args.n_trials, k_range.shape[0], pc_range.shape[0], t_range.shape[0]),
         dtype=float,
     )
     ss_losses = np.empty_like(re_losses)
@@ -91,10 +91,20 @@ def main():
     for i in range(args.n_trials):
         umis_X, umis_Y = ut.split_molecules(umis, args.data_split, 0.0, random_state)
 
-        # n_counts = np.median(umis_X.sum(axis=1))
-        #
-        # umis_X = umis_X / umis_X.sum(axis=1, keepdims=True) * n_counts
-        # umis_Y = umis_Y / umis_Y.sum(axis=1, keepdims=True) * n_counts
+        if args.median_scale:
+            umis_X = (
+                umis_X
+                / umis_X.sum(axis=1, keepdims=True)
+                * np.median(umis_X.sum(axis=1))
+            )
+            umis_Y = (
+                umis_Y
+                / umis_Y.sum(axis=1, keepdims=True)
+                * np.median(umis_Y.sum(axis=1))
+            )
+
+        umis_X = np.sqrt(umis_X)
+        umis_Y = np.sqrt(umis_Y)
 
         for j, n_pcs in enumerate(pc_range):
             magic_op = magic.MAGIC(n_pca=n_pcs, verbose=0)
@@ -108,7 +118,10 @@ def main():
                         denoised, umis_X[:, args.genes]
                     )
                     ss_losses[i, j, j2, j3] = mean_squared_error(
-                        denoised, umis_Y[:, args.genes]
+                        ut.convert_expectations(
+                            denoised, args.data_split, 1 - args.data_split
+                        ),
+                        umis_Y[:, args.genes],
                     )
 
     results = {
