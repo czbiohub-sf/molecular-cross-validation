@@ -81,11 +81,8 @@ def main():
     pc_range = np.arange(1, args.max_components + 1)
     t_range = np.arange(1, args.max_time + 1)
 
-    re_losses = np.empty(
-        (args.n_trials, pc_range.shape[0], k_range.shape[0], t_range.shape[0]),
-        dtype=float,
-    )
-    ss_losses = np.empty_like(re_losses)
+    re_losses = dict()
+    ss_losses = dict()
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
@@ -99,18 +96,18 @@ def main():
         else:
             umis_Y *= args.data_split / (1 - args.data_split)
 
-        for j, n_pcs in enumerate(pc_range):
+        for n_pcs in pc_range:
             magic_op = magic.MAGIC(n_pca=n_pcs, verbose=0)
-            for j2, k in enumerate(k_range):
-                for j3, t in enumerate(t_range):
+            for k in k_range:
+                for t in t_range:
                     magic_op.set_params(knn=k, t=t)
                     denoised = magic_op.fit_transform(umis_X, genes=args.genes)
                     denoised = np.maximum(denoised, 0)
 
-                    re_losses[i, j, j2, j3] = mean_squared_error(
+                    re_losses[i, n_pcs, k, t] = mean_squared_error(
                         denoised, umis_X[:, args.genes]
                     )
-                    ss_losses[i, j, j2, j3] = mean_squared_error(
+                    ss_losses[i, n_pcs, k, t] = mean_squared_error(
                         denoised, umis_Y[:, args.genes]
                     )
 
@@ -119,7 +116,7 @@ def main():
         "method": "magic",
         "loss": "mse",
         "normalization": "sqrt",
-        "param_range": [n_range, k_range, t_range],
+        "param_range": [pc_range, k_range, t_range],
         "re_loss": re_losses,
         "ss_loss": ss_losses,
     }
