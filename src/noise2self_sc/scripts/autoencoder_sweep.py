@@ -197,10 +197,10 @@ def main():
         m.parameters(),
         lr=args.learning_rate,
         betas=[0.0, 0.9, 0.99],
-        weight_decay=0.0001,
+        weight_decay=1e-7,
     )
 
-    scheduler_kw = {"t_max": 128, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
+    scheduler_kw = {"t_max": 256, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
 
     train_losses = []
     val_losses = []
@@ -259,7 +259,7 @@ def main():
                 val_dl,
                 input_t=input_t,
                 min_cycles=3,
-                threshold=0.01,
+                threshold=0.001,
                 scheduler_kw=scheduler_kw,
             )
             train_losses.append(train_loss)
@@ -284,7 +284,7 @@ def main():
                 full_val_dl,
                 input_t=input_t,
                 min_cycles=3,
-                threshold=0.01,
+                threshold=0.001,
                 scheduler_kw=scheduler_kw,
             )
 
