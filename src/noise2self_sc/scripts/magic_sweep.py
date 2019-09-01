@@ -50,7 +50,7 @@ def main():
         type=int,
         default=30,
         metavar="PC",
-        help="Number of components to compute",
+        help="Number of components to compute, by fives (min = 5)",
     )
     model_group.add_argument(
         "--max_time",
@@ -78,7 +78,7 @@ def main():
         true_means, true_counts, umis = pickle.load(f)
 
     k_range = np.arange(2, args.max_neighbors + 1)
-    pc_range = np.arange(1, args.max_components + 1)
+    pc_range = np.arange(5, args.max_components + 1, 5)
     t_range = np.arange(1, args.max_time + 1)
 
     re_losses = dict()
