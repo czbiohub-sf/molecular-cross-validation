@@ -36,26 +36,33 @@ def main():
         "--genes", type=int, nargs="+", required=True, help="Genes to smooth (indices)"
     )
 
-    model_group = parser.add_argument_group("model", description="Model parameters")
+    model_group = parser.add_argument_group(
+        "model",
+        description="Model parameters. [max] or [min, max] or [min, max, interval]",
+
+    )
 
     model_group.add_argument(
-        "--max_neighbors",
+        "--neighbors",
         type=int,
-        default=12,
+        nargs="+",
+        default=(1, 11),
         metavar="K",
-        help="Number of neighbors in kNN graph (min = 2)",
+        help="Number of neighbors in kNN graph",
     )
     model_group.add_argument(
-        "--max_components",
+        "--components",
         type=int,
-        default=30,
+        nargs="+",
+        default=(5, 51, 5),
         metavar="PC",
-        help="Number of components to compute, by fives (min = 5)",
+        help="Maximum number of components to compute",
     )
     model_group.add_argument(
-        "--max_time",
+        "--time",
         type=int,
-        default=5,
+        nargs="+",
+        default=(1, 6),
         metavar="T",
         help="Number of time steps for diffusion",
     )
@@ -77,9 +84,9 @@ def main():
     with open(args.dataset, "rb") as f:
         true_means, true_counts, umis = pickle.load(f)
 
-    k_range = np.arange(2, args.max_neighbors + 1)
-    pc_range = np.arange(5, args.max_components + 1, 5)
-    t_range = np.arange(1, args.max_time + 1)
+    k_range = np.arange(*args.neighbors)
+    pc_range = np.arange(*args.components)
+    t_range = np.arange(*args.time)
 
     re_losses = dict()
     ss_losses = dict()
@@ -97,9 +104,9 @@ def main():
             umis_Y = umis_Y * args.data_split / (1 - args.data_split)
 
         for n_pcs in pc_range:
-            magic_op = magic.MAGIC(n_pca=n_pcs, verbose=0)
             for k in k_range:
                 for t in t_range:
+                    magic_op = magic.MAGIC(n_pca=n_pcs, verbose=0)
                     magic_op.set_params(knn=k, t=t)
                     denoised = magic_op.fit_transform(umis_X, genes=args.genes)
                     denoised = np.maximum(denoised, 0)
