@@ -118,7 +118,7 @@ def overlap_correction(
     :return: Adjusted values for data_split, and the overlap correction factor
     """
     if np.all(sample_ratio == 0.0):
-        return data_split, 0.0
+        return data_split, 1 - data_split, 0.0
 
     a = (1 - data_split) / data_split
 
