@@ -110,7 +110,10 @@ def main():
     logger.addHandler(logging.StreamHandler())
 
     dataset_name = args.dataset.parent.name
-    output_file = args.output_dir / f"{args.loss}_diffusion_{args.seed}.pickle"
+    output_file = (
+        args.output_dir / f"{dataset_name}_diffusion_{args.loss}_{args.seed}.pickle"
+    )
+
     logger.info(f"writing output to {output_file}")
 
     seed = sum(map(ord, f"biohub_{args.seed}"))

@@ -122,7 +122,9 @@ def main():
     logger.info(f"torch version {torch.__version__}")
 
     dataset_name = args.dataset.parent.name
-    output_file = args.output_dir / f"{args.loss}_autoencoder_{args.seed}.pickle"
+    output_file = (
+        args.output_dir / f"{dataset_name}_autoencoder_{args.loss}_{args.seed}.pickle"
+    )
 
     logger.info(f"writing output to {output_file}")
 
