@@ -87,8 +87,8 @@ def main():
     pc_range = np.arange(*args.components)
     t_range = np.arange(*args.time)
 
-    re_losses = dict()
-    ss_losses = dict()
+    rec_loss = dict()
+    mcv_loss = dict()
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
@@ -110,10 +110,10 @@ def main():
                     denoised = magic_op.fit_transform(umis_X, genes=args.genes)
                     denoised = np.maximum(denoised, 0)
 
-                    re_losses[i, n_pcs, k, t] = mean_squared_error(
+                    rec_loss[i, n_pcs, k, t] = mean_squared_error(
                         denoised, umis_X[:, args.genes]
                     )
-                    ss_losses[i, n_pcs, k, t] = mean_squared_error(
+                    mcv_loss[i, n_pcs, k, t] = mean_squared_error(
                         denoised, umis_Y[:, args.genes]
                     )
 
@@ -123,8 +123,8 @@ def main():
         "loss": "mse",
         "normalization": "sqrt",
         "param_range": [pc_range, k_range, t_range],
-        "re_loss": re_losses,
-        "ss_loss": ss_losses,
+        "rec_loss": rec_loss,
+        "mcv_loss": mcv_loss,
     }
 
     with open(output_file, "wb") as out:

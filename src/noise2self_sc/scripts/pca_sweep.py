@@ -59,10 +59,10 @@ def main():
 
     k_range = np.arange(1, args.max_components + 1)
 
-    re_losses = np.empty((args.n_trials, k_range.shape[0]), dtype=float)
-    ss_losses = np.empty_like(re_losses)
-    gt0_losses = np.empty(k_range.shape[0], dtype=float)
-    gt1_losses = np.empty_like(re_losses)
+    rec_loss = np.empty((args.n_trials, k_range.shape[0]), dtype=float)
+    mcv_loss = np.empty_like(rec_loss)
+    gt0_loss = np.empty(k_range.shape[0], dtype=float)
+    gt1_loss = np.empty_like(rec_loss)
 
     data_split, data_split_complement, overlap = ut.overlap_correction(
         args.data_split, umis.sum(1, keepdims=True) / true_counts
@@ -80,7 +80,7 @@ def main():
 
     for j, k in enumerate(k_range):
         pca_X = U[:, :k].dot(np.diag(S[:k])).dot(V[:k, :])
-        gt0_losses[j] = mean_squared_error(exp_means, pca_X)
+        gt0_loss[j] = mean_squared_error(exp_means, pca_X)
 
     # run n_trials for self-supervised sweep
     for i in range(args.n_trials):
@@ -96,9 +96,9 @@ def main():
             pca_X = US[:, :k].dot(V[:k, :])
             conv_exp = ut.convert_expectations(pca_X, data_split, data_split_complement)
 
-            re_losses[i, j] = mean_squared_error(umis_X, pca_X)
-            ss_losses[i, j] = mean_squared_error(umis_Y, conv_exp)
-            gt1_losses[i, j] = mean_squared_error(exp_split_means, conv_exp)
+            rec_loss[i, j] = mean_squared_error(umis_X, pca_X)
+            mcv_loss[i, j] = mean_squared_error(umis_Y, conv_exp)
+            gt1_loss[i, j] = mean_squared_error(exp_split_means, conv_exp)
 
     results = {
         "dataset": dataset_name,
@@ -106,10 +106,10 @@ def main():
         "loss": "mse",
         "normalization": "sqrt",
         "param_range": k_range,
-        "re_loss": re_losses,
-        "ss_loss": ss_losses,
-        "gt0_loss": gt0_losses,
-        "gt1_loss": gt1_losses,
+        "rec_loss": rec_loss,
+        "mcv_loss": mcv_loss,
+        "gt0_loss": gt0_loss,
+        "gt1_loss": gt1_loss,
     }
 
     with open(output_file, "wb") as out:

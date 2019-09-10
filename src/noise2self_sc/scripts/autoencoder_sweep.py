@@ -148,10 +148,10 @@ def main():
     if max(bottlenecks) > max(args.layers):
         raise ValueError("Max bottleneck width is larger than your network layers")
 
-    re_losses = np.empty(len(bottlenecks), dtype=float)
-    ss_losses = np.empty_like(re_losses)
-    gt0_losses = np.empty_like(re_losses)
-    gt1_losses = np.empty_like(re_losses)
+    rec_loss = np.empty(len(bottlenecks), dtype=float)
+    mcv_loss = np.empty_like(rec_loss)
+    gt0_loss = np.empty_like(rec_loss)
+    gt1_loss = np.empty_like(rec_loss)
 
     data_split, data_split_complement, overlap = ut.overlap_correction(
         args.data_split, umis.sum(1, keepdims=True) / true_counts
@@ -266,11 +266,11 @@ def main():
             train_losses.append(train_loss)
             val_losses.append(val_loss)
 
-            re_losses[j] = train_loss[-1]
-            ss_losses[j] = n2s.train.evaluate_epoch(
+            rec_loss[j] = train_loss[-1]
+            mcv_loss[j] = n2s.train.evaluate_epoch(
                 model, eval1_fn, train_dl, input_t, eval_i=[1, 3, 4]
             )
-            gt1_losses[j] = n2s.train.evaluate_epoch(
+            gt1_loss[j] = n2s.train.evaluate_epoch(
                 model, eval1_fn, train_dl, input_t, eval_i=[2, 3, 4]
             )
 
@@ -294,7 +294,7 @@ def main():
 
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
-            gt0_losses[j] = eval0_fn(model(input_t(umis)), exp_means)
+            gt0_loss[j] = eval0_fn(model(input_t(umis)), exp_means)
 
     results = {
         "dataset": dataset_name,
@@ -302,10 +302,10 @@ def main():
         "loss": args.loss,
         "normalization": normalization,
         "param_range": bottlenecks,
-        "re_loss": re_losses,
-        "ss_loss": ss_losses,
-        "gt0_loss": gt0_losses,
-        "gt1_loss": gt1_losses,
+        "rec_loss": rec_loss,
+        "mcv_loss": mcv_loss,
+        "gt0_loss": gt0_loss,
+        "gt1_loss": gt1_loss,
         "train_losses": train_losses,
         "val_losses": val_losses,
         "full_train_losses": full_train_losses,

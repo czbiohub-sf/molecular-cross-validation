@@ -121,10 +121,10 @@ def main():
 
     t_range = np.arange(args.max_time + 1)
 
-    re_losses = np.empty((args.n_trials, t_range.shape[0]), dtype=float)
-    ss_losses = np.empty_like(re_losses)
-    gt0_losses = np.empty(t_range.shape[0], dtype=float)
-    gt1_losses = np.empty_like(re_losses)
+    rec_loss = np.empty((args.n_trials, t_range.shape[0]), dtype=float)
+    mcv_loss = np.empty_like(rec_loss)
+    gt0_loss = np.empty(t_range.shape[0], dtype=float)
+    gt1_loss = np.empty_like(rec_loss)
 
     data_split, data_split_complement, overlap = ut.overlap_correction(
         args.data_split, umis.sum(1, keepdims=True) / true_counts
@@ -157,7 +157,7 @@ def main():
         diff = umis.copy().astype(np.float)
 
     for t in t_range:
-        gt0_losses[t] = loss(exp_means, diff)
+        gt0_loss[t] = loss(exp_means, diff)
         diff = diff_op.dot(diff)
 
     # run n_trials for self-supervised sweep
@@ -183,9 +183,9 @@ def main():
             else:
                 conv_exp = diff_X / data_split * data_split_complement
 
-            re_losses[i, t] = loss(umis_X, diff_X)
-            ss_losses[i, t] = loss(umis_Y, conv_exp)
-            gt1_losses[i, t] = loss(exp_split_means, conv_exp)
+            rec_loss[i, t] = loss(umis_X, diff_X)
+            mcv_loss[i, t] = loss(umis_Y, conv_exp)
+            gt1_loss[i, t] = loss(exp_split_means, conv_exp)
 
             diff_X = diff_op.dot(diff_X)
 
@@ -195,10 +195,10 @@ def main():
         "loss": args.loss,
         "normalization": normalization,
         "param_range": t_range,
-        "re_loss": re_losses,
-        "ss_loss": ss_losses,
-        "gt0_loss": gt0_losses,
-        "gt1_loss": gt1_losses,
+        "rec_loss": rec_loss,
+        "mcv_loss": mcv_loss,
+        "gt0_loss": gt0_loss,
+        "gt1_loss": gt1_loss,
     }
 
     with open(output_file, "wb") as out:
