@@ -39,7 +39,6 @@ def main():
     model_group = parser.add_argument_group(
         "model",
         description="Model parameters. [max] or [min, max] or [min, max, interval]",
-
     )
 
     model_group.add_argument(

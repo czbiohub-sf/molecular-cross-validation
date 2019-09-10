@@ -194,10 +194,7 @@ def main():
     )
 
     optimizer_factory = lambda m: AggMo(
-        m.parameters(),
-        lr=args.learning_rate,
-        betas=[0.0, 0.9, 0.99],
-        weight_decay=1e-7,
+        m.parameters(), lr=args.learning_rate, betas=[0.0, 0.9, 0.99], weight_decay=1e-7
     )
 
     scheduler_kw = {"t_max": 256, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
@@ -219,8 +216,12 @@ def main():
         umis = torch.from_numpy(umis).to(torch.float).to(device)
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
         umis_Y = torch.from_numpy(umis_Y).to(torch.float)
-        data_split = torch.from_numpy(data_split).to(torch.float)
-        data_split_complement = torch.from_numpy(data_split_complement).to(torch.float)
+        data_split = torch.from_numpy(
+            np.broadcast_to(data_split, (umis.shape[0], 1))
+        ).to(torch.float)
+        data_split_complement = torch.from_numpy(
+            np.broadcast_to(data_split_complement, (umis.shape[0], 1))
+        ).to(torch.float)
 
         sample_indices = random_state.permutation(umis.size(0))
         n_train = int(0.875 * umis.size(0))
