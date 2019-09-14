@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 
 import itertools
-import warnings
 
-from collections import defaultdict
-from typing import Callable, Sequence, Tuple, Union
+from typing import Callable, Sequence, Tuple
 
 import numpy as np
 

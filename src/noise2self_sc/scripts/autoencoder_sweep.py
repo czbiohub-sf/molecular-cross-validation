@@ -1,20 +1,16 @@
 #!/usr/bin/env python
 
 import argparse
-import collections
 import logging
 import pathlib
 import pickle
 import time
-
-from typing import Union
 
 import numpy as np
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as func
-import torch.utils.data
 
 import noise2self_sc as n2s
 import noise2self_sc.train
