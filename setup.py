@@ -16,7 +16,7 @@ def read(*names, **kwargs):
 
 setuptools.setup(
     name="noise2self-single-cell",
-    version="0.0.1",
+    version="0.1",
     license="MIT License",
     description="Noise2Self for single-cell gene expression",
     long_description=read("README.md"),
@@ -29,6 +29,24 @@ setuptools.setup(
         os.path.splitext(os.path.basename(path))[0] for path in glob.glob("src/*.py")
     ],
     zip_safe=False,
-    install_requires=["numpy", "torch", "simscity"],
-    extras_require={"plot": ["altair", "pandas", "scikit-learn", "umap-learn"]},
+    install_requires=[
+        "numpy",
+        "torch",
+        "magic-impute",
+        "matplotlib",
+        "pandas<0.24",
+        "scanpy",
+        "scikit-learn",
+        "simscity",
+    ],
+    entry_points={
+        "console_scripts": [
+            "autoencoder_sweep = noise2self_sc.scripts.autoencoder_sweep:main",
+            "diffusion_sweep = noise2self_sc.scripts.diffusion_sweep:main",
+            "pca_sweep = noise2self_sc.scripts.pca_sweep:main",
+            "magic_sweep = noise2self_sc.scripts.magic_sweep:main",
+            "process_h5ad = noise2self_sc.scripts.process_h5ad:main",
+            "simulate_dataset = noise2self_sc.scripts.simulate_dataset:main",
+        ]
+    },
 )
