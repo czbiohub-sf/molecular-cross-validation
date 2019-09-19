@@ -10,7 +10,7 @@ import scipy.sparse
 
 import scanpy as sc
 
-from noise2self_sc.util import poisson_fit
+from molecular_cross_validation.util import poisson_fit
 
 
 def main():

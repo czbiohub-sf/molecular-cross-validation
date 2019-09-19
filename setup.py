@@ -15,14 +15,14 @@ def read(*names, **kwargs):
 
 
 setuptools.setup(
-    name="noise2self-single-cell",
+    name="molecular-cross-validation",
     version="0.1",
     license="MIT License",
-    description="Noise2Self for single-cell gene expression",
+    description="Self-supervised calibration for denoising single-cell gene expression",
     long_description=read("README.md"),
     author="Josh Batson, James Webber",
     author_email="josh.batson@czbiohub.org",
-    url="https://github.com/czbiohub/noise2self-single-cell",
+    url="https://github.com/czbiohub/molecular-cross-validation",
     packages=setuptools.find_packages("src"),
     package_dir={"": "src"},
     py_modules=[
@@ -41,12 +41,12 @@ setuptools.setup(
     ],
     entry_points={
         "console_scripts": [
-            "autoencoder_sweep = noise2self_sc.scripts.autoencoder_sweep:main",
-            "diffusion_sweep = noise2self_sc.scripts.diffusion_sweep:main",
-            "pca_sweep = noise2self_sc.scripts.pca_sweep:main",
-            "magic_sweep = noise2self_sc.scripts.magic_sweep:main",
-            "process_h5ad = noise2self_sc.scripts.process_h5ad:main",
-            "simulate_dataset = noise2self_sc.scripts.simulate_dataset:main",
+            "autoencoder_sweep = molecular_cross_validation.scripts.autoencoder_sweep:main",
+            "diffusion_sweep = molecular_cross_validation.scripts.diffusion_sweep:main",
+            "pca_sweep = molecular_cross_validation.scripts.pca_sweep:main",
+            "magic_sweep = molecular_cross_validation.scripts.magic_sweep:main",
+            "process_h5ad = molecular_cross_validation.scripts.process_h5ad:main",
+            "simulate_dataset = molecular_cross_validation.scripts.simulate_dataset:main",
         ]
     },
 )

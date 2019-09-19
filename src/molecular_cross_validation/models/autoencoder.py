@@ -5,7 +5,7 @@ from typing import Sequence
 import torch
 import torch.nn as nn
 
-from noise2self_sc.models import make_fc_layers
+from molecular_cross_validation.models import make_fc_layers
 
 
 class CountAutoencoder(nn.Module):

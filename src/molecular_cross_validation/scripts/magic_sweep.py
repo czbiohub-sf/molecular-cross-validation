@@ -9,7 +9,7 @@ import numpy as np
 
 from sklearn.metrics import mean_squared_error
 
-import noise2self_sc.util as ut
+import molecular_cross_validation.util as ut
 
 import magic
 
