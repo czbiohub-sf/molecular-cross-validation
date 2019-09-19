@@ -1,4 +1,4 @@
 #!/usr/bin/env python
 
-import noise2self_sc.models
-import noise2self_sc.train
+import molecular_cross_validation.models
+import molecular_cross_validation.train

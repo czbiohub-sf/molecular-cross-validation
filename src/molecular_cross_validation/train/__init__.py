@@ -13,7 +13,7 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
 
-from noise2self_sc.train.cosine_scheduler import CosineWithRestarts
+from molecular_cross_validation.train.cosine_scheduler import CosineWithRestarts
 
 Transform = Callable[[torch.Tensor], torch.Tensor]
 

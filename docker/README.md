@@ -20,7 +20,7 @@ Dependencies for building the docker images:
 To build the image with GPU support:
 
 ```sh
-nvidia-docker build -t noise2self-gpu-3.7 \
+nvidia-docker build -t mcv-gpu-3.7 \
 	--build-arg uid=$(id -u) \
 	--build-arg gid=$(id -g) \
 	--build-arg cuda=1 \
@@ -31,7 +31,7 @@ nvidia-docker build -t noise2self-gpu-3.7 \
 To build a CPU version:
 
 ```sh
-docker build -t noise2self-cpu-3.7 \
+docker build -t mcv-cpu-3.7 \
 	--build-arg uid=$(id -u) \
 	--build-arg gid=$(id -g) \
 	--build-arg cuda=0 \

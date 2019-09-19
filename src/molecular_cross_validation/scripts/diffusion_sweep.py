@@ -11,7 +11,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils.extmath import randomized_svd
 
-import noise2self_sc.util as ut
+import molecular_cross_validation.util as ut
 
 
 def compute_diff_op(

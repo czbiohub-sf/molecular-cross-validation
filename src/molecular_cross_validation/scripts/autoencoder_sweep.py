@@ -12,13 +12,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as func
 
-import noise2self_sc as n2s
-import noise2self_sc.train
+import molecular_cross_validation as mcv
+import molecular_cross_validation.train
 
-from noise2self_sc.models.autoencoder import CountAutoencoder
-from noise2self_sc.train.aggmo import AggMo
+from molecular_cross_validation.models.autoencoder import CountAutoencoder
+from molecular_cross_validation.train.aggmo import AggMo
 
-import noise2self_sc.util as ut
+import molecular_cross_validation.util as ut
 
 
 def mse_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
@@ -224,7 +224,7 @@ def main():
         sample_indices = random_state.permutation(umis.size(0))
         n_train = int(0.875 * umis.size(0))
 
-        train_dl, val_dl = n2s.train.split_dataset(
+        train_dl, val_dl = mcv.train.split_dataset(
             umis_X,
             umis_Y,
             exp_split_means,
@@ -235,7 +235,7 @@ def main():
             n_train=n_train,
         )
 
-        full_train_dl, full_val_dl = n2s.train.split_dataset(
+        full_train_dl, full_val_dl = mcv.train.split_dataset(
             umis,
             exp_means,
             batch_size=len(sample_indices),
@@ -250,7 +250,7 @@ def main():
             model = model_factory(b)
             optimizer = optimizer_factory(model)
 
-            train_loss, val_loss = n2s.train.train_until_plateau(
+            train_loss, val_loss = mcv.train.train_until_plateau(
                 model,
                 loss_fn,
                 optimizer,
@@ -265,17 +265,17 @@ def main():
             val_losses.append(val_loss)
 
             rec_loss[j] = train_loss[-1]
-            mcv_loss[j] = n2s.train.evaluate_epoch(
+            mcv_loss[j] = mcv.train.evaluate_epoch(
                 model, eval1_fn, train_dl, input_t, eval_i=[1, 3, 4]
             )
-            gt1_loss[j] = n2s.train.evaluate_epoch(
+            gt1_loss[j] = mcv.train.evaluate_epoch(
                 model, eval1_fn, train_dl, input_t, eval_i=[2, 3, 4]
             )
 
             model = model_factory(b)
             optimizer = optimizer_factory(model)
 
-            full_train_loss, full_val_loss = n2s.train.train_until_plateau(
+            full_train_loss, full_val_loss = mcv.train.train_until_plateau(
                 model,
                 loss_fn,
                 optimizer,
