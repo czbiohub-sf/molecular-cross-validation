@@ -183,10 +183,10 @@ def main():
 
         data_split = torch.from_numpy(
             np.broadcast_to(data_split, (umis.shape[0], 1))
-        ).to(torch.float)
+        ).to(torch.float).to(device)
         data_split_complement = torch.from_numpy(
             np.broadcast_to(data_split_complement, (umis.shape[0], 1))
-        ).to(torch.float)
+        ).to(torch.float).to(device)
 
         sample_indices = random_state.permutation(umis.size(0))
         n_train = int(0.875 * umis.size(0))
