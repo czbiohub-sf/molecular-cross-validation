@@ -186,7 +186,7 @@ def mcv_train_until_plateau(
                 criterion=training_loss,
                 data_loader=validation_data,
                 input_t=input_t,
-                eval_i=[1],
+                eval_i=[1, 2, 3],
             )
         )
 

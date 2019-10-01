@@ -36,6 +36,12 @@ def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Te
     return func.poisson_nll_loss(y_pred, y_true)
 
 
+def adjusted_poisson_nll_loss(
+    y_pred: torch.Tensor, y_true: torch.Tensor, a: torch.Tensor, b: torch.Tensor
+) -> torch.Tensor:
+    return func.poisson_nll_loss(y_pred - torch.log(a) + torch.log(b), y_true)
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -103,7 +109,7 @@ def main():
     dataset_name = args.dataset.parent.name
     output_file = (
         args.output_dir
-        / f"{dataset_name}_n2s_autoencoder_{args.loss}_{args.seed}.pickle"
+        / f"{dataset_name}_mcv_autoencoder_{args.loss}_{args.seed}.pickle"
     )
 
     logger.info(f"writing output to {output_file}")
@@ -133,6 +139,9 @@ def main():
     rec_loss = np.empty(len(bottlenecks), dtype=float)
     gt0_loss = np.empty_like(rec_loss)
 
+    data_split, data_split_complement, overlap = ut.overlap_correction(
+        args.data_split, umis.sum(1, keepdims=True) / true_counts
+    )
 
     if args.loss == "mse":
         exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
@@ -147,7 +156,7 @@ def main():
         exp_means = true_means * umis.sum(1, keepdims=True)
         exp_means = torch.from_numpy(exp_means).to(torch.float)
 
-        loss_fn = nn.PoissonNLLLoss()
+        loss_fn = adjusted_poisson_nll_loss
         normalization = "log1p"
         input_t = torch.log1p
         eval0_fn = poisson_nll_loss_cpu
@@ -172,11 +181,20 @@ def main():
     with torch.cuda.device(device):
         umis = torch.from_numpy(umis).to(torch.float).to(device)
 
+        data_split = torch.from_numpy(
+            np.broadcast_to(data_split, (umis.shape[0], 1))
+        ).to(torch.float)
+        data_split_complement = torch.from_numpy(
+            np.broadcast_to(data_split_complement, (umis.shape[0], 1))
+        ).to(torch.float)
+
         sample_indices = random_state.permutation(umis.size(0))
         n_train = int(0.875 * umis.size(0))
 
         train_dl, val_dl = mcvt.split_mcv_dataset(
             umis,
+            data_split,
+            data_split_complement,
             batch_size=len(sample_indices),
             indices=sample_indices,
             n_train=n_train,
