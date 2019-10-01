@@ -170,10 +170,13 @@ def main():
     )
 
     optimizer_factory = lambda m: AggMo(
-        m.parameters(), lr=args.learning_rate, betas=[0.0, 0.9, 0.99], weight_decay=1e-7
+        m.parameters(),
+        lr=args.learning_rate,
+        betas=[0.0, 0.9, 0.99, 0.999],
+        weight_decay=1e-9,
     )
 
-    scheduler_kw = {"t_max": 256, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
+    scheduler_kw = {"t_max": 256, "eta_min": args.learning_rate / 256., "factor": 1.0}
 
     full_train_losses = []
     full_val_losses = []
@@ -216,7 +219,7 @@ def main():
                 train_dl,
                 val_dl,
                 input_t=input_t,
-                min_cycles=3,
+                min_cycles=8,
                 threshold=0.001,
                 scheduler_kw=scheduler_kw,
             )
