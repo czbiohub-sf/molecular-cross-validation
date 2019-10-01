@@ -96,7 +96,7 @@ def mcv_train_epoch(
 
     for data in data_loader:
         y = model(input_t(data[0]))
-        loss = criterion(y, data[1])
+        loss = criterion(y, *(data[i] for i in (1, 2, 3)))
 
         total_epoch_loss += loss.data.item()
 

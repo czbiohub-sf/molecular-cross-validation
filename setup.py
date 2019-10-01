@@ -42,6 +42,7 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "autoencoder_sweep = molecular_cross_validation.scripts.autoencoder_sweep:main",
+            "mcv_autoencoder_sweep = molecular_cross_validation.scripts.mcv_autoencoder_sweep:main",
             "diffusion_sweep = molecular_cross_validation.scripts.diffusion_sweep:main",
             "pca_sweep = molecular_cross_validation.scripts.pca_sweep:main",
             "magic_sweep = molecular_cross_validation.scripts.magic_sweep:main",
