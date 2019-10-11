@@ -144,22 +144,23 @@ def main():
     )
 
     if args.loss == "mse":
-        exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
-        exp_means = torch.from_numpy(exp_means).to(torch.float)
-
-        loss_fn = nn.MSELoss()
-        normalization = "sqrt"
-        input_t = torch.sqrt
-        eval0_fn = mse_loss_cpu
+        raise NotImplementedError("This is hard")
+        # exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
+        # exp_means = torch.from_numpy(exp_means).to(torch.float)
+        #
+        # loss_fn = nn.MSELoss()
+        # normalization = "sqrt"
+        # input_t = torch.sqrt
+        # eval0_fn = mse_loss_cpu
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
-        exp_means = torch.from_numpy(exp_means).to(torch.float)
+        exp_means = torch.from_numpy(exp_means).to(torch.float).to(device)
 
         loss_fn = adjusted_poisson_nll_loss
         normalization = "log1p"
         input_t = torch.log1p
-        eval0_fn = poisson_nll_loss_cpu
+        eval0_fn = adjusted_poisson_nll_loss
 
     model_factory = lambda bottleneck: CountAutoencoder(
         n_input=n_features,
@@ -227,7 +228,7 @@ def main():
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
             rec_loss[j] = full_train_loss[-1]
-            gt0_loss[j] = eval0_fn(model(input_t(umis)), exp_means)
+            gt0_loss[j] = loss_fn(model(input_t(umis)), exp_means, data_split, 1.0)
 
     results = {
         "dataset": dataset_name,
