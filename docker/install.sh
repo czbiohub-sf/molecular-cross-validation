@@ -4,8 +4,7 @@ set -xe
 pip install --upgrade pip
 
 # 1. Install PyTorch
-conda install -y pytorch torchvision -c pytorch
-if [ ${cuda} = 1 ]; then conda install -y cudatoolkit=9.0 -c pytorch; fi
+conda install -y pytorch torchvision cudatoolkit=9.2 -c pytorch
 
 # install jupyterlab, umap, altair, scanpy
 conda install -y jupyterlab numpy numba pytables seaborn scikit-learn scipy statsmodels
