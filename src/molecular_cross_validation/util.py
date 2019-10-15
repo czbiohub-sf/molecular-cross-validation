@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+import itertools
 from typing import Any, Callable, Mapping, Sequence, Tuple, Union
 
 import numpy as np
