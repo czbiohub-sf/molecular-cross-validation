@@ -1,4 +1,4 @@
-from typing import Any, Callable, Sequence, Tuple, Union
+from typing import Any, Callable, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.stats
