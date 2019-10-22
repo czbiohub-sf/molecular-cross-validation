@@ -127,7 +127,7 @@ class GridSearchMCV(BaseEstimator):
                 X, self.data_split, self.overlap, random_state=rng
             )
 
-            if args.loss == "mse":
+            if self.loss == "mse":
                 umis_X = np.sqrt(umis_X)
                 umis_Y = np.sqrt(umis_Y)
 
