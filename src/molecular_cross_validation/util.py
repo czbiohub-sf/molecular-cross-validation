@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-import itertools
-from typing import Any, Callable, Mapping, Sequence, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 import scipy.stats
@@ -164,51 +163,3 @@ def split_molecules(
     umis_Y = umis_Y_disjoint + overlap_factor
 
     return umis_X, umis_Y
-
-
-def run_mcv_sweep(
-    denoiser: Callable,
-    umis: np.ndarray,
-    sweep_kwargs: Mapping[str, Sequence],
-    const_kwargs: Mapping[str, Any] = None,
-    data_split: float = 0.9,
-    n_trials: int = 1,
-    random_state: np.random.RandomState = None,
-):
-    """Given an arbitrary denoiser, performs a grid search on the specified parameters
-    and computes the MCV loss using a Poisson loss function.
-
-    :param denoiser: A function or method that takes an input array of counts and
-                     returns a denoised version.
-    :param umis: raw count array of UMIs. Must not be pre-processed, except for
-                 basic filtering of bad cells/genes.
-    :param sweep_kwargs: Dictionary of kwargs for grid search. Each value should be a
-                         sequence of parameter values to try.
-    :param const_kwargs: Dictionary of kwargs that will be passed to `denoiser` as-is.
-    :param data_split: Proportion of UMIs to use for denoising vs evaluation.
-    :param n_trials: Number of times to repeat this process.
-    :param random_state: For reproducible results.
-    :return: A list of dictionaries, each corresponding to the parameters tested
-             and the resulting MCV loss
-    """
-    if const_kwargs is None:
-        const_kwargs = {}
-    if random_state is None:
-        random_state = np.random.RandomState()
-
-    results = []
-
-    for i in range(n_trials):
-        umis_X, umis_Y = split_molecules(umis, data_split, 0.0, random_state)
-
-        for t in itertools.product(*(sweep_kwargs[k] for k in sweep_kwargs)):
-            sweep_d = {k: v for k, v in zip(sweep_kwargs, t)}
-            denoised_umis = denoiser(umis_X, **const_kwargs, **sweep_d)
-
-            conv_exp = denoised_umis / data_split * (1 - data_split)
-            sweep_d["mcv_loss"] = (conv_exp - umis_Y * np.log(conv_exp + 1e-6)).mean()
-            sweep_d["trial"] = i
-
-            results.append(sweep_d)
-
-    return results
