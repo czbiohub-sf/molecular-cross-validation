@@ -166,7 +166,7 @@ class GridSearchMCV(BaseEstimator):
         self.best_score_ = scores[best_index_]
 
         self.cv_results_ = defaultdict(list)
-        self.cv_results_["mcv_score"] = scores
+        self.cv_results_["mcv_loss"] = scores
 
         for params in param_grid:
             for k in params:
