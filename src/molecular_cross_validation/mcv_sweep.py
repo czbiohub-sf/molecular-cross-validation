@@ -91,43 +91,46 @@ class GridSearchMCV(BaseEstimator):
 
         if sample_ratio is None:
             self.data_split = data_split
-            self.data_split_complement = 1 - data_split
-            self.overlap = 0
+            self.data_split_complement = 1.0 - data_split
+            self.overlap = 0.0
         else:
             self.data_split, self.data_split_complement, self.overlap = (
                 ut.overlap_correction(data_split, sample_ratio)
             )
 
-        self.loss = loss
         if loss == "mse":
-            self.loss_fn = mean_squared_error
+            self.loss = mean_squared_error
         elif loss == "poisson":
-            self.loss_fn = poisson_nll_loss
+            self.loss = poisson_nll_loss
             if transformation is not None:
                 raise ValueError("Transformations only apply to 'mse' loss.")
         else:
             raise ValueError("'loss' must be one of 'mse' or 'poisson'")
 
         if transformation is None:
-            self.transformation_fn = lambda x: x
+            self.transformation = lambda x: x
         elif transformation == 'sqrt':
-            self.transformation_fn = np.sqrt
+            self.transformation = np.sqrt
+        elif callable(transformation):
+            self.transformation = transformation
         else:
-            self.transformation_fn = transformation
+            raise ValueError("Unknown value for 'transformation'")
 
         if data_split == 0.5:
-            self.conversion_fn = lambda x: x
+            self.conversion = lambda x: x
         else:
             if transformation is None:
-                self.conversion_fn = lambda x: (x * self.data_split_complement /
-                                             self.data_split)
+                self.conversion = lambda x: (
+                    x * self.data_split_complement / self.data_split
+                )
             elif transformation == 'sqrt':
-                self.conversion_fn = lambda x: ut.convert_expectations(x,
-                                                self.data_split,
-                                                self.data_split_complement)
+                self.conversion = lambda x: ut.convert_expectations(
+                    x, self.data_split, self.data_split_complement
+                )
             else:
-                raise NotImplementedError("Expectation conversion not"
-                    " implemented for arbitrary transformations.")
+                raise NotImplementedError(
+                    "Expectation conversion not implemented for arbitrary transformations."
+                )
 
         self.random_state = random_state
 
@@ -148,22 +151,26 @@ class GridSearchMCV(BaseEstimator):
                 X, self.data_split, self.overlap, random_state=rng
             )
 
-            umis_X = self.transformation_fn(umis_X)
-            umis_Y = self.transformation_fn(umis_Y)
+            umis_X = self.transformation(umis_X)
+            umis_Y = self.transformation(umis_Y)
 
             for params in param_grid:
                 denoised_umis = self.denoiser(umis_X, **fit_params, **params)
-                converted_denoised_umis = self.conversion_fn(denoised_umis)
-                scores[i].append(
-                    self.loss_fn(converted_denoised_umis, umis_Y)
-                )
+                converted_denoised_umis = self.conversion(denoised_umis)
+                scores[i].append(self.loss(converted_denoised_umis, umis_Y))
 
         scores = [np.mean(s) for s in zip(*scores.values())]
-        results = list(zip(param_grid, scores))
 
-        best_index_ = min(range(len(results)), key=lambda i: results[i][1])
-        self.best_params_ = results[best_index_][0]
-        self.best_score_ = results[best_index_][1]
+        best_index_ = np.argmin(scores)
+        self.best_params_ = param_grid[best_index_]
+        self.best_score_ = scores[best_index_]
+
+        self.cv_results_ = defaultdict(list)
+        self.cv_results_["mcv_score"] = scores
+
+        for params in param_grid:
+            for k in params:
+                self.cv_results_[k].append(params[k])
 
         return self
 
