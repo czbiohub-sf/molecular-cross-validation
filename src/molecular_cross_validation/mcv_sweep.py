@@ -63,7 +63,7 @@ class GridSearchMCV(BaseEstimator):
     :param data_split: Proportion of UMIs to use for denoising.
     :param sample_ratio: Estimated ratio of counts in the sample compared to the original cells.
     :param n_splits: Number of times to split UMIs for a given parameterization.
-    :param loss: either `mse` or `poisson`. if `mse`, data will be sqrt transformed.
+    :param loss: either `mse` or `poisson`.
     :param transformation: Transformation to apply to count matrix before denoising.
                            Either `None`, `sqrt`, or an arbitrary function. If a
                            function is used, `data_split` must be 0.5.
