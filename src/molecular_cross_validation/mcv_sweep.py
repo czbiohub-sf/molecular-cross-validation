@@ -35,22 +35,8 @@ def _check_param_grid(param_grid):
                                  "to be a non-empty sequence.".format(name))
 
 
-def adjusted_mse_loss(
-    y_pred: np.ndarray, y_true: np.ndarray, a: float, b: float
-) -> float:
-    y_pred = ut.convert_expectations(y_pred, a, b)
-
-    return mean_squared_error(y_pred, y_true)
-
-
 def poisson_nll_loss(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     return (y_pred - y_true * np.log(y_pred + 1e-6)).mean()
-
-
-def adjusted_poisson_nll_loss(
-    y_pred: np.ndarray, y_true: np.ndarray, a: float, b: float
-) -> float:
-    return poisson_nll_loss(y_pred - np.log(a) + np.log(b), y_true)
 
 
 class GridSearchMCV(BaseEstimator):
@@ -75,9 +61,12 @@ class GridSearchMCV(BaseEstimator):
                        in the list are explored. This enables searching over any
                        sequence of parameter settings.
     :param data_split: Proportion of UMIs to use for denoising.
-    :param overlap: Overlap factor to adjust split, if desired.
+    :param sample_ratio: Estimated ratio of counts in the sample compared to the original cells.
     :param n_splits: Number of times to split UMIs for a given parameterization.
-    :param scoring: either `mse` or `poisson`. if `mse`, data will be sqrt transformed.
+    :param loss: either `mse` or `poisson`. if `mse`, data will be sqrt transformed.
+    :param transformation: Transformation to apply to count matrix before denoising.
+                           Either `None`, `sqrt`, or an arbitrary function. If a
+                           function is used, `data_split` must be 0.5.
     :param random_state: If int, random_state is the seed used by the random number generator;
                          If RandomState instance, random_state is the random number generator;
                          If None, the random number generator is the RandomState instance used
@@ -88,25 +77,57 @@ class GridSearchMCV(BaseEstimator):
         denoiser: Callable,
         param_grid: Union[Mapping, Sequence[Mapping]],
         data_split: Union[float, np.ndarray] = 0.9,
-        overlap: Union[float, np.ndarray] = None,
+        sample_ratio: Union[float, np.ndarray] = None,
         n_splits: int = 1,
-        scoring: str = None,
+        loss: str = None,
+        transformation: Union[str, Callable] = None,
         random_state: Union[int, np.random.RandomState] = None
     ):
         self.denoiser = denoiser
         self.param_grid = param_grid
         _check_param_grid(param_grid)
 
-        self.data_split = data_split
-        self.overlap = overlap or 0.0
         self.n_splits = n_splits
-        self.scoring = scoring
-        if scoring == "mse":
-            self.loss = adjusted_mse_loss
-        elif scoring == "poisson":
-            self.loss = adjusted_poisson_nll_loss
+
+        if sample_ratio is None:
+            self.data_split = data_split
+            self.data_split_complement = 1 - data_split
+            self.overlap = 0
         else:
-            raise ValueError("'scoring' must be one of 'mse' or 'poisson'")
+            self.data_split, self.data_split_complement, self.overlap = (
+                ut.overlap_correction(data_split, sample_ratio)
+            )
+
+        self.loss = loss
+        if loss == "mse":
+            self.loss_fn = mean_squared_error
+        elif loss == "poisson":
+            self.loss_fn = poisson_nll_loss
+            if transformation is not None:
+                raise ValueError("Transformations only apply to 'mse' loss.")
+        else:
+            raise ValueError("'loss' must be one of 'mse' or 'poisson'")
+
+        if transformation is None:
+            self.transformation_fn = lambda x: x
+        elif transformation == 'sqrt':
+            self.transformation_fn = np.sqrt
+        else:
+            self.transformation_fn = transformation
+
+        if data_split == 0.5:
+            self.conversion_fn = lambda x: x
+        else:
+            if transformation is None:
+                self.conversion_fn = lambda x: (x * self.data_split_complement /
+                                             self.data_split)
+            elif transformation == 'sqrt':
+                self.conversion_fn = lambda x: ut.convert_expectations(x,
+                                                self.data_split,
+                                                self.data_split_complement)
+            else:
+                raise NotImplementedError("Expectation conversion not"
+                    " implemented for arbitrary transformations.")
 
         self.random_state = random_state
 
@@ -127,16 +148,14 @@ class GridSearchMCV(BaseEstimator):
                 X, self.data_split, self.overlap, random_state=rng
             )
 
-            if self.loss == "mse":
-                umis_X = np.sqrt(umis_X)
-                umis_Y = np.sqrt(umis_Y)
+            umis_X = self.transformation_fn(umis_X)
+            umis_Y = self.transformation_fn(umis_Y)
 
             for params in param_grid:
                 denoised_umis = self.denoiser(umis_X, **fit_params, **params)
+                converted_denoised_umis = self.conversion_fn(denoised_umis)
                 scores[i].append(
-                    self.loss(
-                        denoised_umis, umis_Y, data_split, 1 - data_split + self.overlap
-                    )
+                    self.loss_fn(converted_denoised_umis, umis_Y)
                 )
 
         scores = [np.mean(s) for s in zip(*scores.values())]
