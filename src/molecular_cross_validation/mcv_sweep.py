@@ -11,7 +11,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import ParameterGrid
 from sklearn.utils.validation import check_random_state, check_is_fitted
 
-from molecular_cross_validation.util import split_molecules
+import molecular_cross_validation.util as ut
 
 
 # copy of sklearn.model_selection._check_param_grid
@@ -147,7 +147,7 @@ class GridSearchMCV(BaseEstimator):
         scores = defaultdict(list)
 
         for i in range(self.n_splits):
-            umis_X, umis_Y = split_molecules(
+            umis_X, umis_Y = ut.split_molecules(
                 X, self.data_split, self.overlap, random_state=rng
             )
 
