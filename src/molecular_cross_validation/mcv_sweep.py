@@ -50,7 +50,7 @@ class GridSearchMCV(BaseEstimator):
 
     After `fit` has been called, the following attributes will be set:
     `best_params_` : the parameters for the best performing model
-    `best_score_` : the MCV score of the best performing model
+    `best_loss_` : the MCV score of the best performing model
 
     :param denoiser: A function or method that takes an input array of counts and
                      returns a denoised version. This object should not retain any
@@ -144,7 +144,7 @@ class GridSearchMCV(BaseEstimator):
         rng = check_random_state(self.random_state)
         param_grid = ParameterGrid(self.param_grid)
 
-        scores = defaultdict(list)
+        losses = defaultdict(list)
 
         for i in range(self.n_splits):
             umis_X, umis_Y = ut.split_molecules(
@@ -157,16 +157,16 @@ class GridSearchMCV(BaseEstimator):
             for params in param_grid:
                 denoised_umis = self.denoiser(umis_X, **fit_params, **params)
                 converted_denoised_umis = self.conversion(denoised_umis)
-                scores[i].append(self.loss(converted_denoised_umis, umis_Y))
+                losses[i].append(self.loss(converted_denoised_umis, umis_Y))
 
-        scores = [np.mean(s) for s in zip(*scores.values())]
+        losses = [np.mean(s) for s in zip(*losses.values())]
 
-        best_index_ = np.argmin(scores)
+        best_index_ = np.argmin(losses)
         self.best_params_ = param_grid[best_index_]
-        self.best_score_ = scores[best_index_]
+        self.best_loss_ = losses[best_index_]
 
         self.cv_results_ = defaultdict(list)
-        self.cv_results_["mcv_loss"] = scores
+        self.cv_results_["mcv_loss"] = losses
 
         for params in param_grid:
             for k in params:
