@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--seed", type=int, required=True)
-    parser.add_argument("--input_h5ad", type=pathlib.Path, required=True)
+    parser.add_argument("--input_data", type=pathlib.Path, required=True)
     parser.add_argument("--output_dir", type=pathlib.Path, required=True)
 
     data_group = parser.add_argument_group("Parameters for dataset")
@@ -39,8 +39,9 @@ def main():
 
     dataset_file = args.output_dir / f"dataset_{args.seed}.pickle"
 
-    logger.info("loading h5ad")
-    data = sc.read(args.input_h5ad)
+    logger.info("loading data")
+    data = sc.read(args.input_data)
+    data.var_names_make_unique()
 
     if args.min_counts:
         sc.pp.filter_cells(data, min_counts=args.min_counts)
