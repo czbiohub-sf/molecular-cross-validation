@@ -37,7 +37,7 @@ setuptools.setup(
         "pandas",
         "scanpy",
         "scikit-learn",
-        "simscity",
+        "simscity @ git+https://github.com/czbiohub/simscity",
     ],
     entry_points={
         "console_scripts": [
