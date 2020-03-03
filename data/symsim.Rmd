@@ -1,0 +1,81 @@
+---
+title: "SymSim"
+output: html_document
+---
+
+```{r}
+library(SymSim)
+```
+
+
+## Simulate multiple discrete populations
+When there are multiple populations, users need to provide a tree. A tree with five leaves (five populations) can be generated as follows:
+
+```{r,cache=T}
+phyla1 <- Phyla5()
+plot(phyla1)
+```  
+
+```{r}
+ngenes <- 500
+data(gene_len_pool)
+gene_len <- sample(gene_len_pool, ngenes, replace = FALSE)
+```
+
+Simulate true counts:
+
+```{r,cache=T}
+true_counts_res <- SimulateTrueCounts(ncells_total=1000, min_popsize=50, i_minpop=2, ngenes=ngenes, nevf=20, evf_type="discrete", n_de_evf=10, vary="s", Sigma=0.3, phyla=Phyla5(), randseed=0)
+true_counts_res_dis <- true_counts_res
+tsne_true_counts <- PlotTsne(meta=true_counts_res[[3]], data=log2(true_counts_res[[1]]+1), evf_type="discrete", n_pc=20, label='pop', saving = F, plotname="discrete populations (true counts)")
+tsne_true_counts[[2]]
+```
+
+```{r,cache=T}
+observed_counts <- True2ObservedCounts(true_counts=true_counts_res[[1]], meta_cell=true_counts_res[[3]], protocol="UMI", alpha_mean=0.005, alpha_sd=0.0, gene_len=gene_len, depth_mean=5e4, depth_sd=3e3)
+tsne_UMI_counts <- PlotTsne(meta=observed_counts[[2]], data=log2(observed_counts[[1]]+1), evf_type="discrete", n_pc=20, label='pop', saving = F, plotname="observed counts UMI")
+tsne_UMI_counts[[2]]
+```
+
+```{r}
+median(colSums(observed_counts[[1]]))
+median(colSums(true_counts_res[[1]]))
+```
+
+
+```{r}
+write.table(observed_counts$counts, file = "/Users/josh/src/molecular-cross-validation/data/symsim/observed_counts.csv", row.names = FALSE, sep=',')
+write.table(observed_counts$cell_meta, file = "/Users/josh/src/molecular-cross-validation/data/symsim/cell_meta.csv", row.names = FALSE, sep=',')
+write.table(true_counts_res$counts, file = "/Users/josh/src/molecular-cross-validation/data/symsim/true_counts.csv", row.names = FALSE, sep=',')
+```
+
+# Deeper
+
+Simulate true counts:
+
+```{r,cache=T}
+n_cells = 2000
+min_popsize = n_cells*0.05
+true_counts_res <- SimulateTrueCounts(ncells_total=n_cells, min_popsize=min_popsize, i_minpop=2, ngenes=ngenes, nevf=20, evf_type="discrete", n_de_evf=10, vary="s", Sigma=0.3, phyla=Phyla5(), randseed=0)
+true_counts_res_dis <- true_counts_res
+tsne_true_counts <- PlotTsne(meta=true_counts_res[[3]], data=log2(true_counts_res[[1]]+1), evf_type="discrete", n_pc=20, label='pop', saving = F, plotname="discrete populations (true counts)")
+tsne_true_counts[[2]]
+```
+
+```{r,cache=T}
+observed_counts <- True2ObservedCounts(true_counts=true_counts_res[[1]], meta_cell=true_counts_res[[3]], protocol="UMI", alpha_mean=0.005, alpha_sd=0.0, gene_len=gene_len, depth_mean=5e4, depth_sd=3e3)
+tsne_UMI_counts <- PlotTsne(meta=observed_counts[[2]], data=log2(observed_counts[[1]]+1), evf_type="discrete", n_pc=20, label='pop', saving = F, plotname="observed counts UMI")
+tsne_UMI_counts[[2]]
+```
+
+```{r}
+median(colSums(observed_counts[[1]]))
+median(colSums(true_counts_res[[1]]))
+```
+
+
+```{r}
+write.table(observed_counts$counts, file = "/Users/josh/src/molecular-cross-validation/data/symsim/observed_counts5k.csv", row.names = FALSE, sep=',')
+write.table(observed_counts$cell_meta, file = "/Users/josh/src/molecular-cross-validation/data/symsim/cell_meta5k.csv", row.names = FALSE, sep=',')
+write.table(true_counts_res$counts, file = "/Users/josh/src/molecular-cross-validation/data/symsim/true_counts5k.csv", row.names = FALSE, sep=',')
+```
