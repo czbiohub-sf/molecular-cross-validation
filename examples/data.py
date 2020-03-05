@@ -7,7 +7,7 @@ def load_data(dataset, data_dir='/Users/josh/src/molecular-cross-validation/data
 
     if dataset == 'kidney':
         adata = sc.read(
-            data_dir + '/tabula-muris-senis/tabula-muris-senis-droplet-processed-official-annotations-Kidney.h5ad')
+            data_dir + '/tabula_muris_senis/tabula-muris-senis-droplet-processed-official-annotations-Kidney.h5ad')
         adata.obs['cell_type'] = adata.obs['cell_ontology_class']
 
     if dataset == 'blood':
@@ -23,6 +23,11 @@ def load_data(dataset, data_dir='/Users/josh/src/molecular-cross-validation/data
         adata = sc.read(
             data_dir + '/symsim/' + dataset + '.h5ad')
         adata.obs['cell_type'] = adata.obs['pop']
+
+    if dataset == 'tms_deep':
+        adata = sc.read(
+            data_dir + '/tabula_muris_senis/tabula-muris-senis-deep.h5ad')
+        adata.obs['cell_type'] = adata.obs['cell_ontology_class']
 
     X = adata.X if adata.raw is None else adata.raw.X
     adata = sc.AnnData(X=X, obs=adata.obs)
