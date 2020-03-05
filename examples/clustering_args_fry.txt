@@ -1,0 +1,10 @@
+symsim2k 30 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
+symsim2k 30 seurat /mnt/ibm_lg/james/mcv_workspace/data ../runs
+blood 40 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
+blood 40 seurat /mnt/ibm_lg/james/mcv_workspace/data ../runs
+bipolar 40 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
+bipolar 40 seurat /mnt/ibm_lg/james/mcv_workspace/data ../runs
+kidney 150 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
+kidney 150 seurat /mnt/ibm_lg/james/mcv_workspace/data ../runs
+tms_deep 150 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
+tms_deep 150 seurat /mnt/ibm_lg/james/mcv_workspace/data ../runs
