@@ -1,0 +1,10 @@
+symsim2k 30 sqrt ../data ../runs
+symsim2k 30 seurat ../data ../runs
+blood 40 sqrt ../data ../runs
+blood 40 seurat ../data ../runs
+bipolar 40 sqrt ../data ../runs
+bipolar 40 seurat ../data ../runs
+kidney 150 sqrt ../data ../runs
+kidney 150 seurat ../data ../runs
+tmsdeep 150 sqrt ../data ../runs
+tmsdeep 150 seurat ../data ../runs
