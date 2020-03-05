@@ -11,18 +11,38 @@ import numba as nb
 
 # caching some values for efficiency
 taylor_range = np.arange(1, 60)
-taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
-
-
-@nb.vectorize([nb.float64(nb.float64)], target="parallel")
-def taylor_expand(x):
-    return np.exp(-x) * (x ** taylor_range / taylor_factors).sum()
-
+sqrt_taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
+log_taylor_factors = scipy.special.factorial(taylor_range) / np.log(1 + taylor_range)
 
 @nb.vectorize([nb.float64(nb.float64)], target="parallel")
-def taylor_around_mean(x):
+def sqrt_poisson_around_zero(x):
+    return np.exp(-x) * (x ** taylor_range / sqrt_taylor_factors).sum()
+
+@nb.vectorize([nb.float64(nb.float64)], target="parallel")
+def sqrt_poisson_around_mean(x):
     return np.sqrt(x) - x ** (-0.5) / 8 + x ** (-1.5) / 16 - 5 * x ** (-2.5) / 128
 
+@nb.vectorize([nb.float64(nb.float64)], target="parallel")
+def log_poisson_around_zero(x):
+    return np.exp(-x) * (x ** taylor_range / log_taylor_factors).sum()
+
+@nb.vectorize([nb.float64(nb.float64, nb.float64)], target="parallel")
+def log_poisson_around_mean(x, pseudocount=1):
+    """
+    Use Taylor expansion of log(pseudocount + y) around y = x to evaluate
+    the expected value if y ~ Poisson(x). Note that the central 2nd and 3rd
+    moments of Poisson(x) are both equal to x, and that the second and third
+    derivatives of log(pseudocount + y) are -(pseudocount + y)**(-2) and
+    2*(pseudocount + y)**(-3).
+
+    :param x: mean of poisson
+    :param pseudocount: pseudocount
+    :return: expected value of log(pseudocount + x)
+    """
+    return (np.log(pseudocount + x)
+            - x * (pseudocount + x) ** (-2) / 2
+            + x * (pseudocount + x) ** (-3) / 3
+            )
 
 def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndarray:
     """Return expected square root of a poisson distribution. Uses Taylor series
@@ -34,11 +54,25 @@ def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndar
     """
     above_cutoff = mean_expression >= cutoff
 
-    truncated_taylor = taylor_expand(np.minimum(mean_expression, cutoff))
-    truncated_taylor[above_cutoff] = taylor_around_mean(mean_expression[above_cutoff])
+    truncated_taylor = sqrt_poisson_around_zero(np.minimum(mean_expression, cutoff))
+    truncated_taylor[above_cutoff] = sqrt_poisson_around_mean(mean_expression[above_cutoff])
 
     return truncated_taylor
 
+def expected_log(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndarray:
+    """Return expected log1p of a poisson distribution. Uses Taylor series
+     centered at 0 or mean, as appropriate.
+
+    :param mean_expression: Array of expected mean expression values
+    :param cutoff: point for switching between approximations (default is ~optimal)
+    :return: Array of expected sqrt mean expression values
+    """
+    above_cutoff = mean_expression >= cutoff
+
+    truncated_taylor = log_poisson_around_zero(np.minimum(mean_expression, cutoff))
+    truncated_taylor[above_cutoff] = log_poisson_around_mean(mean_expression[above_cutoff], 1)
+
+    return truncated_taylor
 
 def convert_expectations(
     exp_sqrt: np.ndarray,

@@ -83,11 +83,15 @@ def compute_cluster(adata,
                     target_n_clusters=None,
                     kmeans_clusters=None,
                     metric='euclidean'):
-    X = adata.X.copy()
-    if sqrt:
-        sc.pp.sqrt(adata)
+
+    modified_X = False
 
     if 'X_latent' not in adata.obsm:
+        X = adata.X.copy()
+        if sqrt:
+            modified_X = True
+            sc.pp.sqrt(adata)
+
         sc.tl.pca(adata, n_comps=n_comps, zero_center=False)
         adata.obsm['X_latent'] = adata.obsm['X_pca']
 
@@ -120,8 +124,10 @@ def compute_cluster(adata,
         adata.obs['kmeans'] = kmeans.fit_predict(adata.obsm['X_latent'])
         adata.uns['n_clusters'] = len(np.unique(adata.obs['leiden']))
 
+
     # restore original values of X
-    adata.X = X
+    if modified_X:
+        adata.X = X
 
 from sklearn.metrics import adjusted_rand_score
 
@@ -188,6 +194,29 @@ def plot_scalars(denoised, fields):
     fig, ax = plt.subplots(nrow, 3, figsize=(4*ncol, 4*nrow))
     for i, field in enumerate(fields):
         plot_scalar(denoised, field, ax[i//3, i % 3])
+
+def plot_mcv_ari(denoised, ari_field = 'imputed_ari'):
+    params = [adata.uns['denoiser_param'] for adata in denoised]
+    mcv = [adata.uns['mcv'] for adata in denoised]
+    ari = np.array([adata.uns[ari_field] for adata in denoised])
+
+    fig, ax1 = plt.subplots()
+
+    color = 'tab:red'
+    ax1.set_xlabel('PCs')
+    ax1.set_ylabel('mcv', color=color)
+    ax1.plot(params, mcv, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+    color = 'tab:blue'
+    ax2.set_ylabel('1 - ari', color=color)  # we already handled the x-label with ax1
+    ax2.plot(params, 1 - ari, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    plt.show()
 
 def eval_denoised(denoised, gt, label, target_n_clusters=None, loss='mse'):
     """Run all postprocessing metrics on a denoised matrix."""

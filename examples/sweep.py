@@ -1,6 +1,6 @@
 import scanpy as sc
 from sklearn.metrics import mean_squared_error
-from scipy.sparse import issparse
+from scipy.sparse import issparse, dok_matrix
 
 import numpy as np
 from tqdm import tqdm
@@ -29,9 +29,6 @@ def split_adata(adata, p=0.5):
 
     return adata1, adata2
 
-
-
-
 def sweep_pca_mcv2(base_adata, max_pcs=30, n_neighbors=100):
     adata = base_adata.copy()
     adata1, adata2 = split_adata(adata, p=0.5)
@@ -48,8 +45,7 @@ def sweep_pca_mcv2(base_adata, max_pcs=30, n_neighbors=100):
     adjacency -= np.diag(np.diag(adjacency))
     adjacency = squareform(adjacency > 0)
 
-    k_range = np.concatenate(
-        [np.arange(2, 10, 1), np.arange(10, 30, 2), np.arange(30, max_pcs, 5)])
+    k_range = pca_range(max_pcs)
 
     denoised = []
 
@@ -86,8 +82,7 @@ def sweep_pca(base_adata, max_pcs=30, p=0.9):
     sc.tl.pca(adata, n_comps=max_pcs, zero_center=False, random_state=1)
     sc.tl.pca(adata1, n_comps=max_pcs, zero_center=False, random_state=1)
 
-    k_range = np.concatenate(
-        [np.arange(2, 10, 1), np.arange(10, 30, 2), np.arange(30, max_pcs, 5)])
+    k_range = pca_range(max_pcs)
 
     denoised = []
     for i, k in enumerate(tqdm(k_range)):
@@ -104,10 +99,53 @@ def sweep_pca(base_adata, max_pcs=30, p=0.9):
                                          'denoiser_model': None,
                                          'mcv': mcv
                                          },
+                                    obsm={'X_pca': adata.obsm['X_pca'][:, :k],
+                                          'X_latent': adata.obsm['X_pca'][:,
+                                                      :k]},
                                     obs=base_adata.obs)
         denoised.append(adata_denoised)
     return denoised
 
+
+from molecular_cross_validation.util import convert_expectations
+
+def sweep_pca_sqrt(base_adata, max_pcs=30, p=0.9, save_reconstruction=True):
+    adata = base_adata.copy()
+    adata1, adata2 = split_adata(adata, p)
+
+    sc.pp.sqrt(adata1)
+    sc.pp.sqrt(adata2)
+    sc.pp.sqrt(adata)
+
+    sc.tl.pca(adata, n_comps=max_pcs, zero_center=False, random_state=1)
+    sc.tl.pca(adata1, n_comps=max_pcs, zero_center=False, random_state=1)
+
+    k_range = pca_range(max_pcs)
+
+    denoised = []
+    for i, k in enumerate(tqdm(k_range)):
+        reconstruction = adata.obsm['X_pca'][:, :k].dot(adata.varm['PCs'].T[:k])
+        reconstruction = np.maximum(reconstruction, 0)
+
+        reconstruction1 = adata1.obsm['X_pca'][:, :k].dot(
+            adata1.varm['PCs'].T[:k])
+        mcv = mean_squared_error(convert_expectations(reconstruction1, p, 1 - p), adata2.X)
+
+        if not save_reconstruction:
+            reconstruction = dok_matrix(reconstruction.shape)
+
+        adata_denoised = sc.AnnData(X=reconstruction,
+                                    uns={'denoiser': 'pca',
+                                         'denoiser_param': k,
+                                         'denoiser_model': None,
+                                         'mcv': mcv
+                                         },
+                                    obsm={'X_pca': adata.obsm['X_pca'][:, :k],
+                                          'X_latent': adata.obsm['X_pca'][:,
+                                                      :k]},
+                                    obs=base_adata.obs)
+        denoised.append(adata_denoised)
+    return denoised
 
 
 # Helper function for the diffusion denoiser, computes the diffusion operator
@@ -257,7 +295,13 @@ def recipe_sqrt_norm(adata):
     return adata
 
 
-def mcv_sweep_recipe_pca(base_adata, recipe, max_pcs=30):
+def pca_range(max_pcs):
+    return np.concatenate([np.arange(2, np.minimum(10, max_pcs+1), 1),
+                           np.arange(10, np.minimum(30, max_pcs+1), 2),
+                           np.arange(30, np.minimum(100, max_pcs+1), 5),
+                           np.arange(100, np.minimum(500, max_pcs+1), 20)])
+
+def mcv_sweep_recipe_pca(base_adata, recipe, max_pcs=30, save_reconstruction=True):
     adata = base_adata.copy()
     adata1, adata2 = split_adata(adata, 0.5)
 
@@ -269,8 +313,7 @@ def mcv_sweep_recipe_pca(base_adata, recipe, max_pcs=30):
     sc.tl.pca(adata, n_comps=max_pcs, zero_center=False, random_state=1)
     sc.tl.pca(adata1, n_comps=max_pcs, zero_center=False, random_state=1)
 
-    k_range = np.concatenate(
-        [np.arange(2, 10, 1), np.arange(10, 30, 2), np.arange(30, max_pcs, 5)])
+    k_range = pca_range(max_pcs)
 
     denoised = []
     for i, k in enumerate(tqdm(k_range)):
@@ -280,6 +323,9 @@ def mcv_sweep_recipe_pca(base_adata, recipe, max_pcs=30):
         reconstruction1 = adata1.obsm['X_pca'][:, :k].dot(
             adata1.varm['PCs'].T[:k])
         mcv = mean_squared_error(reconstruction1, adata2.X)
+
+        if not save_reconstruction:
+            reconstruction = dok_matrix(reconstruction.shape)
 
         adata_denoised = sc.AnnData(X=reconstruction,
                                     uns={'denoiser': 'pca',
