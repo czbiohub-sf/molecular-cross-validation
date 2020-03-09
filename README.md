@@ -7,3 +7,7 @@ Single-cell RNA sequencing enables researchers to study the gene expression of i
 In this repository, we show how to correctly calibrate three denoising methods---principal component analysis, network diffusion, and a deep autoencoder---and how to select the best one for a given dataset.
 
 For details about the method and performance on real and simulated data, see the preprint _Molecular Cross-Validation for Single-Cell RNA-seq_, available [here](https://www.biorxiv.org/content/10.1101/786269v1).
+
+## Examples
+
+Notebooks to generate the figures are located in the `examples` folder. This folder also contains a tutorial on how to use the `GridSearchMCV` class to calibrate any denoising method with MCV, along with notes about how algorithm-specific optimization can greatly speed up the grid search process.
