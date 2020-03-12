@@ -82,7 +82,8 @@ def compute_cluster(adata,
                     n_neighbors=10,
                     target_n_clusters=None,
                     kmeans_clusters=None,
-                    metric='euclidean'):
+                    metric='euclidean',
+                    random_state = None):
 
     modified_X = False
 
@@ -96,11 +97,11 @@ def compute_cluster(adata,
         adata.obsm['X_latent'] = adata.obsm['X_pca']
 
     sc.pp.neighbors(adata, n_neighbors=n_neighbors, use_rep='X_latent',
-                    metric=metric)
+                    metric=metric, random_state=random_state)
 
     resolution = 1
 
-    sc.tl.leiden(adata, resolution=resolution, key_added='leiden1')
+    sc.tl.leiden(adata, resolution=resolution, key_added='leiden1', random_state=random_state)
 
     adata.obs['leiden'] = adata.obs['leiden1']
 
@@ -173,6 +174,10 @@ def extract_best(denoised):
     return best_adata
 
 
+def fetch_scalar(denoised, field):
+    return [adata.uns[field] for adata in denoised]
+
+
 def plot_scalar(denoised, field, ax=None):
     """Plot a scalar against the parameters used to sweep."""
     params = []
@@ -188,10 +193,10 @@ def plot_scalar(denoised, field, ax=None):
         ax.plot(params, values)
         ax.set_title(field)
 
-def plot_scalars(denoised, fields):
+def plot_scalars(denoised, fields, **kwargs):
     nrow = (len(fields)+2)//3
     ncol = 3
-    fig, ax = plt.subplots(nrow, 3, figsize=(4*ncol, 4*nrow))
+    fig, ax = plt.subplots(nrow, 3, figsize=(4*ncol, 4*nrow), **kwargs)
     for i, field in enumerate(fields):
         plot_scalar(denoised, field, ax[i//3, i % 3])
 

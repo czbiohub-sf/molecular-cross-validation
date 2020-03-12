@@ -10,8 +10,20 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils.extmath import randomized_svd
 from scipy.spatial.distance import pdist, squareform
 
+def densify(x):
+    if issparse(x):
+        return np.array(x.todense())
+    return x
 
-def split_adata(adata, p=0.5):
+def glmpca_denoise(umis, n_components):
+    import glmpca
+    Y = umis.T
+    output = glmpca.glmpca(Y, n_components, penalty=1, fam='poi', verbose=True)
+    offsets = np.log(Y.mean(0))
+    M = np.exp(output['loadings'].dot(output['factors'].T) + output['coefX'] + offsets)
+    return M.T
+
+def split_adata(adata, p=0.5, random_seed=None):
     X = adata.raw.X
     if issparse(X):
         X = np.array(X.todense())
@@ -20,6 +32,9 @@ def split_adata(adata, p=0.5):
     else:
         raise TypeError(
             "Molecular cross-validation requires integer count data.")
+
+    if random_seed:
+        np.random.seed(random_seed)
 
     X1 = np.random.binomial(X, p).astype(np.float)
     X2 = X - X1
@@ -75,9 +90,9 @@ def sweep_pca_mcv2(base_adata, max_pcs=30, n_neighbors=100):
         denoised.append(adata_denoised)
     return denoised
 
-def sweep_pca(base_adata, max_pcs=30, p=0.9):
+def sweep_pca(base_adata, max_pcs=30, p=0.9, random_seed=None):
     adata = base_adata.copy()
-    adata1, adata2 = split_adata(adata, p)
+    adata1, adata2 = split_adata(adata, p, random_seed)
 
     sc.tl.pca(adata, n_comps=max_pcs, zero_center=False, random_state=1)
     sc.tl.pca(adata1, n_comps=max_pcs, zero_center=False, random_state=1)
@@ -206,7 +221,7 @@ def poisson_nll_loss(y_pred: np.ndarray, y_true: np.ndarray,
     return lik
 
 
-def sweep_diffusion(base_adata, max_t=10, p=0.9):
+def sweep_diffusion_poisson(base_adata, max_t=10, p=0.9):
     adata = base_adata.copy()
     adata1, adata2 = split_adata(adata, p)
 
@@ -233,6 +248,45 @@ def sweep_diffusion(base_adata, max_t=10, p=0.9):
                                          },
                                     obs=base_adata.obs)
         denoised.append(adata_denoised)
+    return denoised
+
+
+def sweep_diffusion_sqrt(base_adata, max_t=10, p=0.9, random_seed=None, save_reconstruction=True):
+    adata = base_adata.copy()
+    adata.X = densify(adata.X)
+    adata1, adata2 = split_adata(adata, p, random_seed)
+    
+    diff_op = compute_diff_op(adata.X)
+    diff_op1 = compute_diff_op(adata1.X)
+
+    diffused_umis = np.sqrt(adata.X.copy().astype(np.float))
+    diffused_umis1 = np.sqrt(adata1.X.copy().astype(np.float))
+
+    target = np.sqrt(adata2.X)
+    
+    t_range = np.arange(max_t)
+
+    denoised = []
+    for i, t in enumerate(tqdm(t_range)):
+        mcv = mean_squared_error(convert_expectations(diffused_umis1, p, 1 - p), target)
+
+        reconstruction = diffused_umis
+        
+        if not save_reconstruction:
+            reconstruction = dok_matrix(reconstruction.shape)
+
+        adata_denoised = sc.AnnData(X=reconstruction,
+                                    uns={'denoiser': 'diffusion',
+                                         'denoiser_param': t,
+                                         'denoiser_model': None,
+                                         'mcv': mcv
+                                         },
+                                    obs=base_adata.obs)
+        denoised.append(adata_denoised)
+        
+        diffused_umis = diff_op.dot(diffused_umis)
+        diffused_umis1 = diff_op1.dot(diffused_umis1)
+
     return denoised
 
 
@@ -337,6 +391,34 @@ def mcv_sweep_recipe_pca(base_adata, recipe, max_pcs=30, save_reconstruction=Tru
                                           'X_latent': adata.obsm['X_pca'][:, :k]},
                                     obs=base_adata.obs)
         denoised.append(adata_denoised)
+    return denoised
+
+def sweep_raw_sqrt(base_adata, p=0.9, random_seed=None, save_reconstruction=True):
+    adata = base_adata.copy()
+    adata.X = densify(adata.X)
+    adata1, adata2 = split_adata(adata, p, random_seed)
+    
+    sc.pp.sqrt(adata)
+    sc.pp.sqrt(adata1)
+    sc.pp.sqrt(adata2)
+    denoised = []
+
+    mcv = mean_squared_error(convert_expectations(adata1.X, p, 1 - p), adata2.X)
+
+    reconstruction = adata1.X
+        
+    if not save_reconstruction:
+        reconstruction = dok_matrix(reconstruction.shape)
+
+    adata_denoised = sc.AnnData(X=reconstruction,
+                                uns={'denoiser': 'raw',
+                                     'denoiser_param': 0,
+                                     'denoiser_model': None,
+                                     'mcv': mcv
+                                     },
+                                obs=base_adata.obs)
+    denoised.append(adata_denoised)
+
     return denoised
 
 

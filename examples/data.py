@@ -1,6 +1,6 @@
 import scanpy as sc
 
-DATASETS = ['kidney', 'blood', 'symsim2k', 'bipolar']
+DATASETS = ['kidney', 'blood', 'symsim2k', 'bipolar', 'tms_deep', 'symsim4k']
 
 def load_data(dataset, data_dir='/Users/josh/src/molecular-cross-validation/data'):
     assert dataset in DATASETS
@@ -30,7 +30,7 @@ def load_data(dataset, data_dir='/Users/josh/src/molecular-cross-validation/data
         adata.obs['cell_type'] = adata.obs['cell_ontology_class']
 
     X = adata.X if adata.raw is None else adata.raw.X
-    adata = sc.AnnData(X=X, obs=adata.obs)
+    adata.X = X
     adata.raw = adata
 
     return adata
