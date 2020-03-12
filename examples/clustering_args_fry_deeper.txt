@@ -1,0 +1,12 @@
+symsim4k 300 sqrt /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+symsim2k 300 sqrt /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+blood 300 sqrt /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+bipolar 300 sqrt /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+kidney 300 sqrt /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+tms_deep 300 sqrt /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+symsim4k 300 seurat /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+symsim2k 300 seurat /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+blood 300 seurat /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+bipolar 300 seurat /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+kidney 300 seurat /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+tms_deep 300 seurat /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs

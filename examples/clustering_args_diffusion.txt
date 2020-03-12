@@ -1,0 +1,5 @@
+symsim2k 10 diffusion /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+blood 10 diffusion /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+bipolar 10 diffusion /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+kidney 10 diffusion /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs
+tms_deep 10 diffusion /mnt/ibm_lg/james/mcv_workspace/data /mnt/ibm_lg/josh/mcv_workspace/runs

@@ -1,4 +1,4 @@
-symsim2k 30 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
+symsim2k 40 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
 symsim2k 30 seurat /mnt/ibm_lg/james/mcv_workspace/data ../runs
 blood 40 sqrt /mnt/ibm_lg/james/mcv_workspace/data ../runs
 blood 40 seurat /mnt/ibm_lg/james/mcv_workspace/data ../runs
