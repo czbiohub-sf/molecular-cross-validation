@@ -203,6 +203,8 @@ def main():
     full_train_losses = []
     full_val_losses = []
 
+    batch_size = min(1024, umis.shape[0])
+
     with torch.cuda.device(device):
         umis_X, umis_Y = ut.split_molecules(umis, data_split, overlap, random_state)
 
@@ -230,7 +232,7 @@ def main():
             exp_split_means,
             data_split,
             data_split_complement,
-            batch_size=len(sample_indices),
+            batch_size=batch_size,
             indices=sample_indices,
             n_train=n_train,
         )
@@ -238,7 +240,7 @@ def main():
         full_train_dl, full_val_dl = mcv.train.split_dataset(
             umis,
             exp_means,
-            batch_size=len(sample_indices),
+            batch_size=batch_size,
             indices=sample_indices,
             n_train=n_train,
         )
