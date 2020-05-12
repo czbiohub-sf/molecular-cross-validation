@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from typing import Tuple, Union
 
 import numpy as np
@@ -140,7 +142,7 @@ def split_molecules(
     overlap_factor: float = 0.0,
     random_state: np.random.RandomState = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Splits molecules into two (overlapping) groups.
+    """Splits molecules into two (potentially overlapping) groups.
 
     :param umis: Array of molecules to split
     :param data_split: Proportion of molecules to assign to the first group
