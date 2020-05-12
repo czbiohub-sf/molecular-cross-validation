@@ -7,9 +7,7 @@ pip install --upgrade pip
 conda install -y pytorch torchvision cudatoolkit=10.1 -c pytorch
 
 # install jupyterlab, umap, altair, scanpy
-conda install -y jupyterlab numpy numba pytables seaborn scikit-learn scipy statsmodels
-conda install -y altair louvain python-igraph umap-learn nodejs -c conda-forge
-pip install scanpy
+conda install -y matplotlib=3.0 jupyterlab numpy scipy umap-learn nodejs scanpy -c bioconda -c conda-forge
 pip install magic-impute
 
 git clone https://github.com/czbiohub/simscity.git
