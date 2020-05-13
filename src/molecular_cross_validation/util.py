@@ -158,8 +158,8 @@ def split_molecules(
     umis_Y_disjoint = random_state.binomial(
         umis - umis_X_disjoint, (1 - data_split) / (1 - data_split + overlap_factor)
     )
-    overlap_factor = umis - umis_X_disjoint - umis_Y_disjoint
-    umis_X = umis_X_disjoint + overlap_factor
-    umis_Y = umis_Y_disjoint + overlap_factor
+    overlap = umis - umis_X_disjoint - umis_Y_disjoint
+    umis_X = umis_X_disjoint + overlap
+    umis_Y = umis_Y_disjoint + overlap
 
     return umis_X, umis_Y

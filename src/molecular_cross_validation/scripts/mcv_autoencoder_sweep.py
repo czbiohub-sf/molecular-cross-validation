@@ -11,7 +11,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as func
-from torch.utils.data import DataLoader
 
 import molecular_cross_validation as mcv
 import molecular_cross_validation.train
@@ -22,18 +21,6 @@ from molecular_cross_validation.train.aggmo import AggMo
 import molecular_cross_validation.util as ut
 
 import molecular_cross_validation.train.mcv_train as mcvt
-
-
-def mse_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-    y_pred = y_pred.detach().cpu()
-
-    return func.mse_loss(y_pred, y_true)
-
-
-def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-    y_pred = y_pred.detach().cpu()
-
-    return func.poisson_nll_loss(y_pred, y_true)
 
 
 def adjusted_poisson_nll_loss(
@@ -136,8 +123,8 @@ def main():
     if max(bottlenecks) > max(args.layers):
         raise ValueError("Max bottleneck width is larger than your network layers")
 
-    rec_loss = np.empty(len(bottlenecks), dtype=float)
-    gt0_loss = np.empty_like(rec_loss)
+    mcv_loss = np.empty(len(bottlenecks), dtype=float)
+    gt0_loss = np.empty_like(mcv_loss)
 
     data_split, data_split_complement, overlap = ut.overlap_correction(
         args.data_split, umis.sum(1, keepdims=True) / true_counts
@@ -155,12 +142,12 @@ def main():
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
+
         exp_means = torch.from_numpy(exp_means).to(torch.float).to(device)
 
         loss_fn = adjusted_poisson_nll_loss
         normalization = "log1p"
         input_t = torch.log1p
-        eval0_fn = adjusted_poisson_nll_loss
 
     model_factory = lambda bottleneck: CountAutoencoder(
         n_input=n_features,
@@ -176,8 +163,10 @@ def main():
 
     scheduler_kw = {"t_max": 256, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
 
-    full_train_losses = []
-    full_val_losses = []
+    train_losses = []
+    val_losses = []
+
+    batch_size = min(1024, umis.shape[0])
 
     with torch.cuda.device(device):
         umis = torch.from_numpy(umis).to(torch.float).to(device)
@@ -188,46 +177,49 @@ def main():
         data_split_complement = torch.from_numpy(
             np.broadcast_to(data_split_complement, (umis.shape[0], 1))
         ).to(torch.float).to(device)
+        overlap = torch.from_numpy(
+            np.broadcast_to(overlap, (umis.shape[0], 1))
+        ).to(torch.float).to(device)
 
         sample_indices = random_state.permutation(umis.size(0))
         n_train = int(0.875 * umis.size(0))
 
-        train_dl, val_dl = mcvt.split_mcv_dataset(
+        train_dl, val_dl = mcv.train.split_dataset(
             umis,
             data_split,
             data_split_complement,
-            batch_size=len(sample_indices),
+            overlap,
+            batch_size=batch_size,
             indices=sample_indices,
             n_train=n_train,
-            split_prob=args.data_split
+            dataloader_cls=mcvt.MCVDataLoader,
         )
 
         t0 = time.time()
 
         for j, b in enumerate(bottlenecks):
             logger.info(f"testing bottleneck width {b}")
-
             model = model_factory(b)
             optimizer = optimizer_factory(model)
 
-            full_train_loss, full_val_loss = mcvt.mcv_train_until_plateau(
+            train_loss, val_loss = mcv.train.train_until_plateau(
                 model,
                 loss_fn,
                 optimizer,
                 train_dl,
                 val_dl,
                 input_t=input_t,
-                min_cycles=8,
+                min_cycles=3,
                 threshold=0.001,
                 scheduler_kw=scheduler_kw,
+                eval_i=(1, 2, 3),
             )
-
-            full_train_losses.append(full_train_loss)
-            full_val_losses.append(full_val_loss)
+            train_losses.append(train_loss)
+            val_losses.append(val_loss)
 
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
-            rec_loss[j] = full_train_loss[-1]
+            mcv_loss[j] = train_loss[-1]
             gt0_loss[j] = loss_fn(model(input_t(umis)), exp_means, data_split, 1.0)
 
     results = {
@@ -236,10 +228,10 @@ def main():
         "loss": args.loss,
         "normalization": normalization,
         "param_range": bottlenecks,
-        "rec_loss": rec_loss,
+        "mcv_loss": mcv_loss,
         "gt0_loss": gt0_loss,
-        "full_train_losses": full_train_losses,
-        "full_val_losses": full_val_losses,
+        "train_losses": train_losses,
+        "val_losses": val_losses,
     }
 
     with open(output_file, "wb") as out:

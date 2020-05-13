@@ -2,7 +2,7 @@
 
 import itertools
 
-from typing import Callable, Sequence, Tuple
+from typing import Callable, Sequence, Tuple, Type
 
 import numpy as np
 
@@ -19,7 +19,11 @@ Transform = Callable[[torch.Tensor], torch.Tensor]
 
 
 def split_dataset(
-    *xs: torch.Tensor, batch_size: int, indices: np.ndarray = None, n_train: int = None
+    *xs: torch.Tensor,
+    batch_size: int,
+    indices: np.ndarray = None,
+    n_train: int = None,
+    dataloader_cls: Type[DataLoader] = DataLoader,
 ):
     if indices is None:
         indices = np.random.permutation(xs[0].shape[0])
@@ -29,13 +33,13 @@ def split_dataset(
 
     ds = TensorDataset(*xs)
 
-    training_dl = DataLoader(
+    training_dl = dataloader_cls(
         dataset=ds,
         batch_size=batch_size,
         sampler=SubsetRandomSampler(indices[:n_train]),
     )
 
-    validation_dl = DataLoader(
+    validation_dl = dataloader_cls(
         dataset=ds,
         batch_size=batch_size,
         sampler=SubsetRandomSampler(indices[n_train:]),
@@ -44,59 +48,25 @@ def split_dataset(
     return training_dl, validation_dl
 
 
-def train_epoch(
+def evaluate_epoch(
     model: nn.Module,
     criterion: nn.Module,
-    optim: Optimizer,
     data_loader: DataLoader,
     input_t: Transform,
+    eval_i: Sequence[int] = (0,),
+    optim: Optimizer = None,
     clip_norm: float = None,
 ):
     """Iterate through training data, compute losses and take gradient steps
 
     :param model: a torch Module that can take input data and return the prediction
     :param criterion: a loss function
-    :param optim: a torch Optimizer
-    :param data_loader: training dataset. Should produce a tuple of tensors: the first
-                        is used as input and the last is the target. If the tuple has
-                        only one element then it's used for both
+    :param data_loader: training dataset. Should produce a tuple of at least one tensor,
+                        which will be the input to the model
     :param input_t: Transformation to apply to the input
+    :param eval_i: Indices into the data tuple for evaluation, defaults to the input
+    :param optim: If a torch Optimizer, this will compute gradients and adjust weights
     :param clip_norm: clip gradient norm to a given absolute value
-    :return: total loss for the epoch, averaged over the number of batches
-    """
-    total_epoch_loss = 0.0
-
-    for data in data_loader:
-        y = model(input_t(data[0]))
-        loss = criterion(y, data[0])
-
-        total_epoch_loss += loss.data.item()
-
-        optim.zero_grad()
-        loss.backward()
-        if clip_norm is not None:
-            clip_grad_norm_(model.parameters(), clip_norm)
-        optim.step()
-
-    return total_epoch_loss / len(data_loader)
-
-
-def evaluate_epoch(
-    model: nn.Module,
-    criterion: nn.Module,
-    data_loader: DataLoader,
-    input_t: Transform,
-    eval_i: Sequence[int],
-):
-    """Iterate through test data and compute losses
-
-    :param model: a torch Module that can take input data and return the prediction
-    :param criterion: a loss function
-    :param data_loader: validation dataset. Should produce a tuple of tensors: the first
-                        is used as input and the last is the target. If the tuple has
-                        only one element then it's used for both
-    :param input_t: Transformation to apply to the input
-    :param eval_i: Index into the DataLoader tuple for evaluation
     :return: total loss for the epoch, averaged over the number of batches
     """
     total_epoch_loss = 0.0
@@ -106,6 +76,13 @@ def evaluate_epoch(
         loss = criterion(y, *(data[i] for i in eval_i))
 
         total_epoch_loss += loss.data.item()
+
+        if optim is not None:
+            optim.zero_grad()
+            loss.backward()
+            if clip_norm is not None:
+                clip_grad_norm_(model.parameters(), clip_norm)
+            optim.step()
 
     return total_epoch_loss / len(data_loader)
 
@@ -117,6 +94,7 @@ def train_until_plateau(
     training_data: DataLoader,
     validation_data: DataLoader,
     input_t: Transform,
+    eval_i: Sequence[int] = (0,),
     min_cycles: int = 3,
     threshold: float = 0.01,
     scheduler_kw: dict = None,
@@ -132,6 +110,7 @@ def train_until_plateau(
                           the last are considered to be input and the last is the target
     :param validation_data: Validation dataset in the same format
     :param input_t: Function to apply to the input
+    :param eval_i: Indices into the data for evaluation, defaults to the input
     :param min_cycles: Minimum number of cycles to run before checking for convergence
     :param threshold: Tolerance threshold for calling convergence
     :param scheduler_kw: dictionary of keyword arguments for CosineWithRestarts
@@ -158,12 +137,13 @@ def train_until_plateau(
         model.train()
 
         train_loss.append(
-            train_epoch(
+            evaluate_epoch(
                 model=model,
                 criterion=training_loss,
-                optim=optim,
                 data_loader=training_data,
                 input_t=input_t,
+                eval_i=eval_i,
+                optim=optim,
                 clip_norm=100.0,
             )
         )
@@ -175,7 +155,7 @@ def train_until_plateau(
                 criterion=training_loss,
                 data_loader=validation_data,
                 input_t=input_t,
-                eval_i=[0],
+                eval_i=eval_i,
             )
         )
 
