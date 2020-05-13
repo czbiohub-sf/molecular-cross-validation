@@ -58,7 +58,7 @@ class AggMo(Optimizer):
                 for beta in betas:
                     buf = param_state["momentum_buffer"][beta]
                     buf.mul_(beta).add_(d_p)
-                    p.data.sub_(group["lr"] / total_mom, buf)
+                    p.data.sub_(buf, alpha=group["lr"] / total_mom)
         return loss
 
     def zero_momentum_buffers(self):
