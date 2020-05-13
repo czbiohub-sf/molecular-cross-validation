@@ -18,7 +18,7 @@ class AggMo(Optimizer):
         weight_decay: float = 0.0,
     ):
         defaults = dict(lr=lr, betas=betas, weight_decay=weight_decay)
-        super(AggMo, self).__init__(params, defaults)
+        super().__init__(params, defaults)
 
     @classmethod
     def from_exp_form(cls, params, lr=required, a=0.1, k=3, weight_decay=0):
@@ -26,7 +26,7 @@ class AggMo(Optimizer):
         return cls(params, lr, betas, weight_decay)
 
     def __setstate__(self, state):
-        super(AggMo, self).__setstate__(state)
+        super().__setstate__(state)
 
     def step(self, closure=None):
         """Performs a single optimization step.

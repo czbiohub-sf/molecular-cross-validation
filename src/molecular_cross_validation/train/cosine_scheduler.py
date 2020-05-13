@@ -39,7 +39,7 @@ class CosineWithRestarts(torch.optim.lr_scheduler._LRScheduler):
         self._cycle_factor: float = 1.0
         self._updated_cycle_len: int = t_max
         self._initialized: bool = False
-        super(CosineWithRestarts, self).__init__(optimizer, last_epoch)
+        super().__init__(optimizer, last_epoch)
 
     def get_lr(self):
         """Get updated learning rate."""

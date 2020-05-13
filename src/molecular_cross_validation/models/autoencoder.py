@@ -28,7 +28,7 @@ class CountAutoencoder(nn.Module):
         dropout_rate: float = 0.1,
         use_cuda: bool = False,
     ):
-        super(CountAutoencoder, self).__init__()
+        super().__init__()
 
         layers = [n_input] + layers + [n_latent]
 

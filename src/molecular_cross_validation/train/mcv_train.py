@@ -11,7 +11,7 @@ class MCVDataLoader(DataLoader):
     """
 
     def __init__(self, dataset: TensorDataset, **kwargs):
-        super(MCVDataLoader, self).__init__(dataset=dataset, **kwargs)
+        super().__init__(dataset=dataset, **kwargs)
 
     def __iter__(self):
         for indices in iter(self.batch_sampler):
