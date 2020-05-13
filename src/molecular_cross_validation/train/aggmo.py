@@ -49,7 +49,7 @@ class AggMo(Optimizer):
                 d_p = p.grad.data
 
                 if weight_decay != 0:
-                    d_p.add_(weight_decay, p.data)
+                    d_p.add_(p.data, alpha=weight_decay)
                 param_state = self.state[p]
                 if "momentum_buffer" not in param_state:
                     param_state["momentum_buffer"] = {}

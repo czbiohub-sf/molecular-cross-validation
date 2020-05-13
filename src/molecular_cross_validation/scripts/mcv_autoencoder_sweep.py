@@ -172,13 +172,13 @@ def main():
         umis = torch.from_numpy(umis).to(torch.float).to(device)
 
         data_split = torch.from_numpy(
-            np.broadcast_to(data_split, (umis.shape[0], 1))
+            np.broadcast_to(data_split, (umis.shape[0], 1)).copy()
         ).to(torch.float).to(device)
         data_split_complement = torch.from_numpy(
-            np.broadcast_to(data_split_complement, (umis.shape[0], 1))
+            np.broadcast_to(data_split_complement, (umis.shape[0], 1)).copy()
         ).to(torch.float).to(device)
         overlap = torch.from_numpy(
-            np.broadcast_to(overlap, (umis.shape[0], 1))
+            np.broadcast_to(overlap, (umis.shape[0], 1)).copy()
         ).to(torch.float).to(device)
 
         sample_indices = random_state.permutation(umis.size(0))

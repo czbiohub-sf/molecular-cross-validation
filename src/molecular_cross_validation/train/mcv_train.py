@@ -15,7 +15,7 @@ class MCVDataLoader(DataLoader):
 
     def __iter__(self):
         for indices in iter(self.batch_sampler):
-            yield self.split_molecules(*(d[indices] for d in self.dataset))
+            yield self.split_molecules(*(d[indices] for d in self.dataset.tensors))
 
     @staticmethod
     def split_molecules(umis, data_split, data_split_complement, overlap_factor):
