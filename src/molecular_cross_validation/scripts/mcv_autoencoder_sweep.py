@@ -220,7 +220,9 @@ def main():
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
             mcv_loss[j] = train_loss[-1]
-            gt0_loss[j] = loss_fn(model(input_t(umis)), exp_means, data_split, 1.0)
+            gt0_loss[j] = loss_fn(
+                model(input_t(umis)), exp_means, data_split, torch.tensor(1.0)
+            )
 
     results = {
         "dataset": dataset_name,
