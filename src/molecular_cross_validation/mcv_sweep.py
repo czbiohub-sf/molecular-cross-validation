@@ -89,14 +89,9 @@ class GridSearchMCV(BaseEstimator):
 
         self.n_splits = n_splits
 
-        if sample_ratio is None:
-            self.data_split = data_split
-            self.data_split_complement = 1.0 - data_split
-            self.overlap = 0.0
-        else:
-            self.data_split, self.data_split_complement, self.overlap = (
-                ut.overlap_correction(data_split, sample_ratio)
-            )
+        self.data_split, self.data_split_complement, self.overlap = (
+            ut.overlap_correction(data_split, sample_ratio)
+        )
 
         if loss == "mse":
             self.loss = mean_squared_error
