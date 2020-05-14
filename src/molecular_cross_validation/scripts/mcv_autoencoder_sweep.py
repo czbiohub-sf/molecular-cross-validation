@@ -26,7 +26,7 @@ import molecular_cross_validation.train.mcv_train as mcvt
 def adjusted_poisson_nll_loss(
     y_pred: torch.Tensor, y_true: torch.Tensor, a: torch.Tensor, b: torch.Tensor
 ) -> torch.Tensor:
-    return func.poisson_nll_loss(y_pred - torch.log(a) + torch.log(b), y_true)
+    return func.poisson_nll_loss(y_pred - torch.log(a) + torch.log(b), y_true + 1e-6)
 
 
 def main():
