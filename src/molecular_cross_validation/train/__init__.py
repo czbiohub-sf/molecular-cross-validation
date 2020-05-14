@@ -160,7 +160,7 @@ def train_until_plateau(
         )
 
         scheduler.step()
-        if scheduler.starting_cycle:
+        if scheduler.T_cur == 0:
             if verbose:
                 print(
                     f"[epoch {epoch:03d}]  average training loss: {train_loss[-1]:.5f}"
