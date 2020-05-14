@@ -132,13 +132,6 @@ def main():
 
     if args.loss == "mse":
         raise NotImplementedError("This is hard")
-        # exp_means = ut.expected_sqrt(true_means * umis.sum(1, keepdims=True))
-        # exp_means = torch.from_numpy(exp_means).to(torch.float)
-        #
-        # loss_fn = nn.MSELoss()
-        # normalization = "sqrt"
-        # input_t = torch.sqrt
-        # eval0_fn = mse_loss_cpu
     else:
         assert args.loss == "pois"
         exp_means = true_means * umis.sum(1, keepdims=True)
@@ -148,6 +141,7 @@ def main():
         loss_fn = adjusted_poisson_nll_loss
         normalization = "log1p"
         input_t = torch.log1p
+        eval0_fn = func.poisson_nll_loss
 
     model_factory = lambda bottleneck: CountAutoencoder(
         n_input=n_features,
@@ -209,7 +203,7 @@ def main():
                 train_dl,
                 val_dl,
                 input_t=input_t,
-                min_cycles=3,
+                min_cycles=5,
                 threshold=0.001,
                 scheduler_kw=scheduler_kw,
                 eval_i=(1, 2, 3),
@@ -217,10 +211,11 @@ def main():
             train_losses.append(train_loss)
             val_losses.append(val_loss)
 
+            mcv_loss[j] = train_loss[-1]
+
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
-            mcv_loss[j] = train_loss[-1]
-            gt0_loss[j] = func.poisson_nll_loss(model(input_t(umis)), exp_means)
+            gt0_loss[j] = eval0_fn(model(input_t(umis)), exp_means)
 
     results = {
         "dataset": dataset_name,

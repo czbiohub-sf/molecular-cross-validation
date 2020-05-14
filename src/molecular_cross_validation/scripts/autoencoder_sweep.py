@@ -217,10 +217,10 @@ def main():
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
         umis_Y = torch.from_numpy(umis_Y).to(torch.float)
         data_split = torch.from_numpy(
-            np.broadcast_to(data_split, (umis.shape[0], 1))
+            np.broadcast_to(data_split, (umis.shape[0], 1)).copy()
         ).to(torch.float)
         data_split_complement = torch.from_numpy(
-            np.broadcast_to(data_split_complement, (umis.shape[0], 1))
+            np.broadcast_to(data_split_complement, (umis.shape[0], 1)).copy()
         ).to(torch.float)
 
         sample_indices = random_state.permutation(umis.size(0))
