@@ -11,9 +11,8 @@ import torch.nn as nn
 
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader, TensorDataset, SubsetRandomSampler
-
-from molecular_cross_validation.train.cosine_scheduler import CosineWithRestarts
 
 Transform = Callable[[torch.Tensor], torch.Tensor]
 
@@ -101,7 +100,8 @@ def train_until_plateau(
     verbose: bool = False,
 ) -> Tuple[list, list]:
     """Train a model with cosine scheduling until validation loss stabilizes. This
-    function uses CosineWithRestarts to train until the learning rate stops improving.
+    function uses CosineAnnealingWarmRestarts to train until the learning rate stops
+    improving.
 
     :param model: torch Module that can take input data and return the prediction
     :param training_loss: The loss function used for training the model
@@ -113,7 +113,7 @@ def train_until_plateau(
     :param eval_i: Indices into the data for evaluation, defaults to the input
     :param min_cycles: Minimum number of cycles to run before checking for convergence
     :param threshold: Tolerance threshold for calling convergence
-    :param scheduler_kw: dictionary of keyword arguments for CosineWithRestarts
+    :param scheduler_kw: dictionary of keyword arguments for LR scheduler
     :param verbose: Print training progress to stdout
     :return: Lists of training and validation loss and correlation values
     """
@@ -126,7 +126,7 @@ def train_until_plateau(
     train_loss = []
     val_loss = []
 
-    scheduler = CosineWithRestarts(optim, **scheduler_kw)
+    scheduler = CosineAnnealingWarmRestarts(optim, **scheduler_kw)
     best = np.inf
     rel_epsilon = 1.0 - threshold
     neg_epsilon = 1.0 + threshold

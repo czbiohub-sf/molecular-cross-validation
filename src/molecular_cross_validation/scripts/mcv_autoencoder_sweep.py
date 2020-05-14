@@ -161,7 +161,7 @@ def main():
         m.parameters(), lr=args.learning_rate, betas=[0.0, 0.9, 0.99], weight_decay=1e-7
     )
 
-    scheduler_kw = {"t_max": 256, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
+    scheduler_kw = {"T_0": 256, "eta_min": args.learning_rate / 100.0, "T_mult": 1}
 
     train_losses = []
     val_losses = []
@@ -220,9 +220,7 @@ def main():
             logger.debug(f"finished {b} after {time.time() - t0} seconds")
 
             mcv_loss[j] = train_loss[-1]
-            gt0_loss[j] = loss_fn(
-                model(input_t(umis)), exp_means, data_split, torch.tensor(1.0)
-            )
+            gt0_loss[j] = func.poisson_nll_loss(model(input_t(umis)), exp_means)
 
     results = {
         "dataset": dataset_name,

@@ -195,7 +195,7 @@ def main():
         m.parameters(), lr=args.learning_rate, betas=[0.0, 0.9, 0.99], weight_decay=1e-7
     )
 
-    scheduler_kw = {"t_max": 256, "eta_min": args.learning_rate / 100.0, "factor": 1.0}
+    scheduler_kw = {"T_0": 256, "eta_min": args.learning_rate / 100.0, "T_mult": 1}
 
     train_losses = []
     val_losses = []
