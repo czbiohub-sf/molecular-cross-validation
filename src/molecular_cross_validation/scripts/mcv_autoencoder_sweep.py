@@ -30,6 +30,20 @@ def adjusted_poisson_nll_loss(
     return func.poisson_nll_loss(y_pred - torch.log(a) + torch.log(b), y_true)
 
 
+def poisson_nll_loss_cpu(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    y_pred = y_pred.detach().cpu()
+
+    return func.poisson_nll_loss(y_pred, y_true)
+
+
+def adjusted_poisson_nll_loss_cpu(
+    y_pred: torch.Tensor, y_true: torch.Tensor, a: torch.Tensor, b: torch.Tensor
+) -> torch.Tensor:
+    y_pred = y_pred.detach().cpu()
+
+    return func.poisson_nll_loss(y_pred - torch.log(a) + torch.log(b), y_true)
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -146,8 +160,8 @@ def main():
         loss_fn = adjusted_poisson_nll_loss
         normalization = "log1p"
         input_t = torch.log1p
-        eval0_fn = func.poisson_nll_loss
-        eval1_fn = adjusted_poisson_nll_loss
+        eval0_fn = poisson_nll_loss_cpu
+        eval1_fn = adjusted_poisson_nll_loss_cpu
 
     def model_factory(bottleneck):
         return CountAutoencoder(
