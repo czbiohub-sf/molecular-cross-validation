@@ -18,7 +18,13 @@ class MCVDataLoader(DataLoader):
             yield self.split_molecules(*(d[indices] for d in self.dataset.tensors))
 
     @staticmethod
-    def split_molecules(umis, data_split, data_split_complement, overlap_factor):
+    def split_molecules(
+        umis,
+        data_split,
+        data_split_complement,
+        overlap_factor,
+        *args,
+    ):
         x_data = torch.distributions.Binomial(
             umis, probs=data_split - overlap_factor
         ).sample()
@@ -27,4 +33,10 @@ class MCVDataLoader(DataLoader):
         ).sample()
         overlap = umis - x_data - y_data
 
-        return x_data + overlap, y_data + overlap, data_split, data_split_complement
+        return (
+            x_data + overlap,
+            y_data + overlap,
+            data_split,
+            data_split_complement,
+            *args
+        )

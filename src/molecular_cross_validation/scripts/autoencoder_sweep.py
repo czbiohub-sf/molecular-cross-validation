@@ -14,6 +14,7 @@ import torch.nn.functional as func
 
 import molecular_cross_validation as mcv
 import molecular_cross_validation.train
+from molecular_cross_validation.train import broadcast_to_tensor
 
 from molecular_cross_validation.models.autoencoder import CountAutoencoder
 from molecular_cross_validation.train.aggmo import AggMo
@@ -183,17 +184,22 @@ def main():
         eval0_fn = poisson_nll_loss_cpu
         eval1_fn = adjusted_poisson_nll_loss_cpu
 
-    model_factory = lambda bottleneck: CountAutoencoder(
-        n_input=n_features,
-        n_latent=bottleneck,
-        layers=args.layers,
-        use_cuda=True,
-        dropout_rate=args.dropout,
-    )
+    def model_factory(bottleneck):
+        return CountAutoencoder(
+            n_input=n_features,
+            n_latent=bottleneck,
+            layers=args.layers,
+            use_cuda=True,
+            dropout_rate=args.dropout,
+        )
 
-    optimizer_factory = lambda m: AggMo(
-        m.parameters(), lr=args.learning_rate, betas=[0.0, 0.9, 0.99], weight_decay=1e-7
-    )
+    def optimizer_factory(m):
+        return AggMo(
+            m.parameters(),
+            lr=args.learning_rate,
+            betas=[0.0, 0.9, 0.99],
+            weight_decay=1e-7,
+        )
 
     scheduler_kw = {"T_0": 256, "eta_min": args.learning_rate / 100.0, "T_mult": 1}
 
@@ -205,23 +211,22 @@ def main():
 
     batch_size = min(1024, umis.shape[0])
 
+    umis_X, umis_Y = ut.split_molecules(umis, data_split, overlap, random_state)
+
+    if args.loss == "mse":
+        umis = np.sqrt(umis)
+        umis_X = np.sqrt(umis_X)
+        umis_Y = np.sqrt(umis_Y)
+
     with torch.cuda.device(device):
-        umis_X, umis_Y = ut.split_molecules(umis, data_split, overlap, random_state)
-
-        if args.loss == "mse":
-            umis = np.sqrt(umis)
-            umis_X = np.sqrt(umis_X)
-            umis_Y = np.sqrt(umis_Y)
-
         umis = torch.from_numpy(umis).to(torch.float).to(device)
         umis_X = torch.from_numpy(umis_X).to(torch.float).to(device)
         umis_Y = torch.from_numpy(umis_Y).to(torch.float)
-        data_split = torch.from_numpy(
-            np.broadcast_to(data_split, (umis.shape[0], 1)).copy()
-        ).to(torch.float)
-        data_split_complement = torch.from_numpy(
-            np.broadcast_to(data_split_complement, (umis.shape[0], 1)).copy()
-        ).to(torch.float)
+
+        data_split = broadcast_to_tensor(data_split, umis.shape[0])
+        data_split_complement = broadcast_to_tensor(
+            data_split_complement, umis.shape[0]
+        )
 
         sample_indices = random_state.permutation(umis.size(0))
         n_train = int(0.875 * umis.size(0))
@@ -239,7 +244,6 @@ def main():
 
         full_train_dl, full_val_dl = mcv.train.split_dataset(
             umis,
-            exp_means,
             batch_size=batch_size,
             indices=sample_indices,
             n_train=n_train,
