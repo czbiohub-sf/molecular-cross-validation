@@ -253,10 +253,10 @@ def main():
 
             rec_loss[j] = train_loss[-1]
             mcv_loss[j] = mcv.train.evaluate_epoch(
-                model, eval1_fn, train_dl, input_t, eval_i=[5, 7, 8]
+                model, eval1_fn, train_dl, input_t, eval_i=[4, 6, 7]
             )
             gt1_loss[j] = mcv.train.evaluate_epoch(
-                model, eval1_fn, train_dl, input_t, eval_i=[6, 7, 8]
+                model, eval1_fn, train_dl, input_t, eval_i=[5, 6, 7]
             )
 
             model = model_factory(b)
