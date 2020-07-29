@@ -18,9 +18,9 @@ Transform = Callable[[torch.Tensor], torch.Tensor]
 
 
 def broadcast_to_tensor(input_array: np.ndarray, n_rows: int) -> torch.Tensor:
-    return torch.from_numpy(
-        np.broadcast_to(input_array, (n_rows, 1)).copy()
-    ).to(torch.float)
+    return torch.from_numpy(np.broadcast_to(input_array, (n_rows, 1)).copy()).to(
+        torch.float
+    )
 
 
 def split_dataset(

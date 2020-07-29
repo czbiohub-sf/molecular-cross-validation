@@ -243,10 +243,7 @@ def main():
         )
 
         full_train_dl, full_val_dl = mcv.train.split_dataset(
-            umis,
-            batch_size=batch_size,
-            indices=sample_indices,
-            n_train=n_train,
+            umis, batch_size=batch_size, indices=sample_indices, n_train=n_train,
         )
 
         t0 = time.time()
