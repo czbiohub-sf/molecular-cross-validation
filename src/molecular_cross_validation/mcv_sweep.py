@@ -16,7 +16,7 @@ import molecular_cross_validation.util as ut
 
 # copy of sklearn.model_selection._check_param_grid
 def _check_param_grid(param_grid):
-    if hasattr(param_grid, 'items'):
+    if hasattr(param_grid, "items"):
         param_grid = [param_grid]
 
     for p in param_grid:
@@ -24,15 +24,18 @@ def _check_param_grid(param_grid):
             if isinstance(v, np.ndarray) and v.ndim > 1:
                 raise ValueError("Parameter array should be one-dimensional.")
 
-            if (isinstance(v, str) or
-                    not isinstance(v, (np.ndarray, Sequence))):
-                raise ValueError("Parameter values for parameter ({0}) need "
-                                 "to be a sequence(but not a string) or"
-                                 " np.ndarray.".format(name))
+            if isinstance(v, str) or not isinstance(v, (np.ndarray, Sequence)):
+                raise ValueError(
+                    "Parameter values for parameter ({0}) need "
+                    "to be a sequence(but not a string) or"
+                    " np.ndarray.".format(name)
+                )
 
             if len(v) == 0:
-                raise ValueError("Parameter values for parameter ({0}) need "
-                                 "to be a non-empty sequence.".format(name))
+                raise ValueError(
+                    "Parameter values for parameter ({0}) need "
+                    "to be a non-empty sequence.".format(name)
+                )
 
 
 def poisson_nll_loss(y_pred: np.ndarray, y_true: np.ndarray) -> float:
@@ -72,6 +75,7 @@ class GridSearchMCV(BaseEstimator):
                          If None, the random number generator is the RandomState instance used
                          by `np.random`.
     """
+
     def __init__(
         self,
         denoiser: Callable,
@@ -81,7 +85,7 @@ class GridSearchMCV(BaseEstimator):
         n_splits: int = 1,
         loss: str = None,
         transformation: Union[str, Callable] = None,
-        random_state: Union[int, np.random.RandomState] = None
+        random_state: Union[int, np.random.RandomState] = None,
     ):
         self.denoiser = denoiser
         self.param_grid = param_grid
@@ -89,9 +93,11 @@ class GridSearchMCV(BaseEstimator):
 
         self.n_splits = n_splits
 
-        self.data_split, self.data_split_complement, self.overlap = (
-            ut.overlap_correction(data_split, sample_ratio)
-        )
+        (
+            self.data_split,
+            self.data_split_complement,
+            self.overlap,
+        ) = ut.overlap_correction(data_split, sample_ratio)
 
         if loss == "mse":
             self.loss = mean_squared_error
@@ -104,7 +110,7 @@ class GridSearchMCV(BaseEstimator):
 
         if transformation is None:
             self.transformation = lambda x: x
-        elif transformation == 'sqrt':
+        elif transformation == "sqrt":
             self.transformation = np.sqrt
         elif callable(transformation):
             self.transformation = transformation
@@ -118,7 +124,7 @@ class GridSearchMCV(BaseEstimator):
                 self.conversion = lambda x: (
                     x * self.data_split_complement / self.data_split
                 )
-            elif transformation == 'sqrt':
+            elif transformation == "sqrt":
                 self.conversion = lambda x: ut.convert_expectations(
                     x, self.data_split, self.data_split_complement
                 )
