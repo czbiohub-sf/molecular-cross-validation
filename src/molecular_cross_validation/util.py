@@ -10,14 +10,18 @@ import numba as nb
 
 
 # caching some values for efficiency
-taylor_range = np.arange(1, 128)
-sqrt_taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
-log1p_taylor_factors = scipy.special.factorial(taylor_range) / np.log1p(taylor_range)
+coefficient_range = np.arange(1, 128)
+sqrt_expansion_coefficients = scipy.special.factorial(coefficient_range) / np.sqrt(
+    coefficient_range
+)
+log1p_expansion_coefficients = scipy.special.factorial(coefficient_range) / np.log1p(
+    coefficient_range
+)
 
 
 @nb.vectorize([nb.float64(nb.float64)], target="parallel")
 def sqrt_poisson_around_zero(x):
-    return np.exp(-x) * (x ** taylor_range / sqrt_taylor_factors).sum()
+    return np.exp(-x) * (x ** coefficient_range / sqrt_expansion_coefficients).sum()
 
 
 @nb.vectorize([nb.float64(nb.float64)], target="parallel")
@@ -27,7 +31,7 @@ def sqrt_poisson_around_mean(x):
 
 @nb.vectorize([nb.float64(nb.float64)], target="parallel")
 def log1p_poisson_around_zero(x):
-    return np.exp(-x) * (x ** taylor_range / log1p_taylor_factors).sum()
+    return np.exp(-x) * (x ** coefficient_range / log1p_expansion_coefficients).sum()
 
 
 @nb.vectorize([nb.float64(nb.float64, nb.float64)], target="parallel")
