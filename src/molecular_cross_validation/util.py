@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from typing import Tuple, Union
+from typing import Callable, Tuple, Union
 
 import numpy as np
 import scipy.stats
@@ -10,21 +10,41 @@ import numba as nb
 
 
 # caching some values for efficiency
-taylor_range = np.arange(1, 60)
-taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
+taylor_range = np.arange(1, 128)
+sqrt_taylor_factors = scipy.special.factorial(taylor_range) / np.sqrt(taylor_range)
+log1p_taylor_factors = scipy.special.factorial(taylor_range) / np.log1p(taylor_range)
 
 
 @nb.vectorize([nb.float64(nb.float64)], target="parallel")
-def taylor_expand(x):
-    return np.exp(-x) * (x ** taylor_range / taylor_factors).sum()
+def sqrt_poisson_around_zero(x):
+    return np.exp(-x) * (x ** taylor_range / sqrt_taylor_factors).sum()
 
 
 @nb.vectorize([nb.float64(nb.float64)], target="parallel")
-def taylor_around_mean(x):
+def sqrt_poisson_around_mean(x):
     return np.sqrt(x) - x ** (-0.5) / 8 + x ** (-1.5) / 16 - 5 * x ** (-2.5) / 128
 
 
-def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndarray:
+@nb.vectorize([nb.float64(nb.float64)], target="parallel")
+def log1p_poisson_around_zero(x):
+    return np.exp(-x) * (x ** taylor_range / log1p_taylor_factors).sum()
+
+
+@nb.vectorize([nb.float64(nb.float64, nb.float64)], target="parallel")
+def log1p_poisson_around_mean(x):
+    """
+    Use Taylor expansion of log(1 + y) around y = x to evaluate
+    the expected value if y ~ Poisson(x). Note that the central 2nd and 3rd
+    moments of Poisson(x) are both equal to x, and that the second and third
+    derivatives of log(1 + y) are -(1 + y)**(-2) and 2*(1 + y)**(-3).
+
+    :param x: mean of poisson
+    :return: expected value of log(pseudocount + x)
+    """
+    return np.log1p(x) - x * (1.0 + x) ** (-2) / 2 + x * (1.0 + x) ** (-3) / 3
+
+
+def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 85.61) -> np.ndarray:
     """Return expected square root of a poisson distribution. Uses Taylor series
      centered at 0 or mean, as appropriate.
 
@@ -34,50 +54,122 @@ def expected_sqrt(mean_expression: np.ndarray, cutoff: float = 34.94) -> np.ndar
     """
     above_cutoff = mean_expression >= cutoff
 
-    truncated_taylor = taylor_expand(np.minimum(mean_expression, cutoff))
-    truncated_taylor[above_cutoff] = taylor_around_mean(mean_expression[above_cutoff])
+    truncated_taylor = sqrt_poisson_around_zero(np.minimum(mean_expression, cutoff))
+    truncated_taylor[above_cutoff] = sqrt_poisson_around_mean(
+        mean_expression[above_cutoff]
+    )
+
+    return truncated_taylor
+
+
+def expected_log1p(mean_expression: np.ndarray, cutoff: float = 86.53) -> np.ndarray:
+    """Return expected log1p of a poisson distribution. Uses Taylor series
+     centered at 0 or mean, as appropriate.
+
+    :param mean_expression: Array of expected mean expression values
+    :param cutoff: point for switching between approximations (default is ~optimal)
+    :return: Array of expected sqrt mean expression values
+    """
+    above_cutoff = mean_expression >= cutoff
+
+    truncated_taylor = log1p_poisson_around_zero(np.minimum(mean_expression, cutoff))
+    truncated_taylor[above_cutoff] = log1p_poisson_around_mean(
+        mean_expression[above_cutoff]
+    )
 
     return truncated_taylor
 
 
 def convert_expectations(
-    exp_sqrt: np.ndarray,
+    exp_values: np.ndarray,
+    expected_func: Callable,
+    max_val: float,
     a: Union[float, np.ndarray],
     b: Union[float, np.ndarray] = None,
 ) -> np.ndarray:
-    """Takes expected sqrt expression calculated for one scaling factor and converts
-    to the corresponding levels at a second scaling factor
+    """Given an estimate of the mean of f(X) where X is a Poisson random variable, this
+    function will scale those estimates from scale ``a`` to ``b`` by using the function
+    ``expected_func`` to calculate a grid of values over the relevant range defined by
+    ``[0, max_val]``. Used by the methods below for scaling sqrt count and log1p counts.
 
-    :param exp_sqrt: Expected sqrt values calculated at ``scale``
+    :param exp_values: The estimated mean of f(X) calculated at scale ``a``
+    :param expected_func: Function to esimate E[f(X)] from a Poisson mean.
+    :param max_val: Largest count relevant for computing interpolation. Using a very
+        high value will use more memory but is otherwise harmless.
     :param a: Scaling factor(s) of the input data
     :param b: Scale for the output. Set to ``1 - a`` by default
-    :return: A scaled array of expected sqrt expression
+    :return: A scaled array of mean expression values
     """
     if b is None:
         b = 1.0 - a
 
-    exp_sqrt = np.maximum(exp_sqrt, 0)
-    max_val = np.max(exp_sqrt ** 2) / np.min(a)
-
+    # this code creates a grid of values for computing the interpolation arrays. We use
+    # exponentially growing space between points to save memory
     vs = 2 ** np.arange(0, np.ceil(np.log2(max_val + 1)) + 1) - 1
     p_range = np.hstack(
         [np.arange(v, vs[i + 1], 2 ** (i + 1) * 0.01) for i, v in enumerate(vs[:-1])]
     )
 
-    xp = expected_sqrt(p_range * a)
-    fp = expected_sqrt(p_range * b)
+    xp = expected_func(p_range * a)
+    fp = expected_func(p_range * b)
 
     if isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
-        xp = np.broadcast_to(xp, (exp_sqrt.shape[0], p_range.shape[0]))
-        fp = np.broadcast_to(fp, (exp_sqrt.shape[0], p_range.shape[0]))
+        xp = np.broadcast_to(xp, (exp_values.shape[0], p_range.shape[0]))
+        fp = np.broadcast_to(fp, (exp_values.shape[0], p_range.shape[0]))
 
-        interps = np.empty_like(exp_sqrt)
-        for i in range(exp_sqrt.shape[0]):
-            interps[i, :] = np.interp(exp_sqrt[i, :], xp[i, :], fp[i, :])
+        interps = np.empty_like(exp_values)
+        for i in range(exp_values.shape[0]):
+            interps[i, :] = np.interp(exp_values[i, :], xp[i, :], fp[i, :])
 
         return interps
     else:
-        return np.interp(exp_sqrt, xp, fp)
+        return np.interp(exp_values, xp, fp)
+
+
+def convert_exp_sqrt(
+    exp_sqrt: np.ndarray,
+    a: Union[float, np.ndarray],
+    b: Union[float, np.ndarray] = None,
+) -> np.ndarray:
+    """Takes estimated sqrt expression calculated for one scaling factor and converts
+    to the corresponding levels at a second scaling factor.
+
+    :param exp_sqrt: Estimated sqrt values calculated at scale ``a``. Negative values
+        are set to zero.
+    :param a: Scaling factor(s) of the input data
+    :param b: Scale for the output. Set to ``1 - a`` by default
+    :return: A scaled array of estimated sqrt expression
+    """
+    if b is None:
+        b = 1.0 - a
+
+    exp_sqrt = np.maximum(exp_sqrt, 0)
+    max_val = np.max(exp_sqrt) ** 2 / np.min(a)
+
+    return convert_expectations(exp_sqrt, expected_sqrt, max_val, a, b)
+
+
+def convert_exp_log1p(
+    exp_log1p: np.ndarray,
+    a: Union[float, np.ndarray],
+    b: Union[float, np.ndarray] = None,
+) -> np.ndarray:
+    """Takes estimated log1p expression calculated for one scaling factor and converts
+    to the corresponding levels at a second scaling factor
+
+    :param exp_log1p: Estimated log1p values calculated at scale ``a``. Negative values
+        are set to zero.
+    :param a: Scaling factor(s) of the input data
+    :param b: Scale for the output. Set to ``1 - a`` by default
+    :return: A scaled array of estimated log1p expression
+    """
+    if b is None:
+        b = 1.0 - a
+
+    exp_log1p = np.maximum(exp_log1p, 0)
+    max_val = np.exp(np.max(exp_log1p)) / np.min(a)
+
+    return convert_expectations(exp_log1p, expected_log1p, max_val, a, b)
 
 
 def poisson_fit(umis: np.ndarray) -> np.ndarray:
