@@ -26,16 +26,18 @@ class MCVDataLoader(DataLoader):
                 umis, probs=data_split - overlap_factor
             ).sample(),
             0,
-            umis,
         )
+        x_data = torch.where(x_data > umis, umis, x_data)
+
         y_data = torch.clamp(
             torch.distributions.Binomial(
                 umis - x_data,
                 probs=(1 - data_split) / (1 - data_split + overlap_factor),
             ).sample(),
             0,
-            umis - x_data,
         )
+        y_data = torch.where(y_data > umis - x_data, umis - x_data, y_data)
+
         overlap = umis - x_data - y_data
 
         return (
