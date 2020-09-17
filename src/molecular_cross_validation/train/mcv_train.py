@@ -21,22 +21,13 @@ class MCVDataLoader(DataLoader):
     def split_molecules(
         umis, data_split, data_split_complement, overlap_factor, *args,
     ):
-        x_data = torch.clamp(
-            torch.distributions.Binomial(
-                umis, probs=data_split - overlap_factor
-            ).sample(),
-            0,
-        )
-        x_data = torch.where(x_data > umis, umis, x_data)
+        x_data = torch.distributions.Binomial(
+            umis, probs=data_split - overlap_factor
+        ).sample()
 
-        y_data = torch.clamp(
-            torch.distributions.Binomial(
-                umis - x_data,
-                probs=(1 - data_split) / (1 - data_split + overlap_factor),
-            ).sample(),
-            0,
-        )
-        y_data = torch.where(y_data > umis - x_data, umis - x_data, y_data)
+        y_data = torch.distributions.Binomial(
+            umis - x_data, probs=(1 - data_split) / (1 - data_split + overlap_factor),
+        ).sample()
 
         overlap = umis - x_data - y_data
 
