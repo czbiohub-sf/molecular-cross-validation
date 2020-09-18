@@ -11,9 +11,9 @@ conda install -y matplotlib=3.0 jupyterlab numpy scipy umap-learn nodejs scanpy 
 pip install magic-impute
 
 git clone https://github.com/czbiohub/simscity.git
-(cd simscity && python setup.py install)
+(cd simscity && pip install .)
 cd ${HOME}
 
 git clone https://github.com/czbiohub/molecular-cross-validation.git
-(cd molecular-cross-validation && python setup.py install)
+(cd molecular-cross-validation && pip install -e .)
 cd ${HOME}
