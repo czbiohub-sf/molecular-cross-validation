@@ -34,7 +34,7 @@ def log1p_poisson_around_zero(x):
     return np.exp(-x) * (x ** coefficient_range / log1p_expansion_coefficients).sum()
 
 
-@nb.vectorize([nb.float64(nb.float64, nb.float64)], target="parallel")
+@nb.vectorize([nb.float64(nb.float64)], target="parallel")
 def log1p_poisson_around_mean(x):
     """
     Use Taylor expansion of log(1 + y) around y = x to evaluate
